@@ -10,11 +10,8 @@ import {
   ConversationsIcon,
   LeadsIcon,
   AppointmentsIcon,
-  KnowledgeIcon,
-  AgentsIcon,
   SparklesIcon,
   ArrowRightIcon,
-  CheckCircleIcon,
 } from "@/components/ui/icons";
 
 export default function DashboardPage() {
@@ -26,16 +23,16 @@ export default function DashboardPage() {
         {/* Top Greeting Section */}
         <section className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-main-text">
               Good morning, Mukarram
             </h2>
-            <p className="text-sm text-slate-400 mt-1">
+            <p className="text-sm text-secondary-text mt-1">
               Here&apos;s what&apos;s happening with your business.
             </p>
           </div>
 
           <div className="flex items-center gap-2.5">
-            <Badge variant="indigo" className="text-xs py-1 px-3">
+            <Badge variant="cherry" className="text-xs py-1 px-3">
               Workspace Initialized
             </Badge>
             <Button variant="secondary" size="sm" className="text-xs">
@@ -45,18 +42,18 @@ export default function DashboardPage() {
         </section>
 
         {/* Workspace Readiness / Setup Guidance Banner */}
-        <section className="p-6 rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 via-slate-900/60 to-slate-950/80 shadow-lg relative overflow-hidden">
-          <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+        <section className="p-6 rounded-2xl border border-border-main bg-gradient-to-r from-sidebar-bg via-warm-ivory to-white shadow-xs relative overflow-hidden">
+          <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-64 h-64 bg-cherry-light/30 rounded-full blur-3xl pointer-events-none" />
           <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             <div className="max-w-2xl">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 mb-3">
-                <SparklesIcon className="w-3.5 h-3.5 text-indigo-400" />
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-cherry-soft text-cherry border border-border-soft mb-3">
+                <SparklesIcon className="w-3.5 h-3.5 text-cherry" />
                 <span>Workspace Ready for Setup</span>
               </div>
-              <h3 className="text-lg sm:text-xl font-semibold text-white">
+              <h3 className="text-lg sm:text-xl font-semibold text-main-text">
                 Complete your business setup to activate AI agents
               </h3>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1.5 leading-relaxed">
+              <p className="text-xs sm:text-sm text-secondary-text mt-1.5 leading-relaxed">
                 Connect your business knowledge base and communication channels. Once configured,
                 your AI agents will automatically interact with visitors, qualify leads, and manage bookings.
               </p>
@@ -71,34 +68,34 @@ export default function DashboardPage() {
           </div>
 
           {/* 3 Onboarding Steps */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6 pt-6 border-t border-slate-800/80">
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-950/50 border border-slate-800/60">
-              <div className="w-7 h-7 rounded-md bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0 text-xs font-semibold">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6 pt-6 border-t border-border-soft">
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-white border border-border-soft shadow-2xs">
+              <div className="w-7 h-7 rounded-md bg-cherry-soft text-cherry flex items-center justify-center shrink-0 text-xs font-semibold border border-border-soft">
                 1
               </div>
               <div>
-                <p className="text-xs font-medium text-slate-200">Knowledge Base</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Add business documents and FAQs</p>
+                <p className="text-xs font-medium text-main-text">Knowledge Base</p>
+                <p className="text-[11px] text-secondary-text mt-0.5">Add business documents and FAQs</p>
               </div>
             </div>
 
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-950/50 border border-slate-800/60">
-              <div className="w-7 h-7 rounded-md bg-cyan-500/10 text-cyan-400 flex items-center justify-center shrink-0 text-xs font-semibold">
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-white border border-border-soft shadow-2xs">
+              <div className="w-7 h-7 rounded-md bg-cherry-soft text-cherry flex items-center justify-center shrink-0 text-xs font-semibold border border-border-soft">
                 2
               </div>
               <div>
-                <p className="text-xs font-medium text-slate-200">Connect Channels</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Enable Web Chat &amp; WhatsApp</p>
+                <p className="text-xs font-medium text-main-text">Connect Channels</p>
+                <p className="text-[11px] text-secondary-text mt-0.5">Enable Web Chat &amp; WhatsApp</p>
               </div>
             </div>
 
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-950/50 border border-slate-800/60">
-              <div className="w-7 h-7 rounded-md bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 text-xs font-semibold">
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-white border border-border-soft shadow-2xs">
+              <div className="w-7 h-7 rounded-md bg-cherry-soft text-cherry flex items-center justify-center shrink-0 text-xs font-semibold border border-border-soft">
                 3
               </div>
               <div>
-                <p className="text-xs font-medium text-slate-200">Configure Agents</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Set qualification and booking rules</p>
+                <p className="text-xs font-medium text-main-text">Configure Agents</p>
+                <p className="text-[11px] text-secondary-text mt-0.5">Set qualification and booking rules</p>
               </div>
             </div>
           </div>
@@ -111,24 +108,24 @@ export default function DashboardPage() {
             onClick={() => setActiveTab("conversations")}
             className={`p-5 rounded-xl border transition cursor-pointer text-left ${
               activeTab === "conversations"
-                ? "bg-slate-900/90 border-indigo-500/50 ring-1 ring-indigo-500/20"
-                : "bg-slate-900/40 border-slate-800/80 hover:border-slate-700/80 hover:bg-slate-900/60"
+                ? "bg-white border-cherry ring-1 ring-cherry/30 shadow-xs"
+                : "bg-white border-border-main hover:border-cherry/40 hover:shadow-xs"
             }`}
           >
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <span className="text-xs font-semibold uppercase tracking-wider text-secondary-text">
                 Conversations
               </span>
-              <div className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+              <div className="w-7 h-7 rounded-lg bg-cherry-soft text-cherry flex items-center justify-center border border-border-soft">
                 <ConversationsIcon className="w-4 h-4" />
               </div>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-white tracking-tight">0</span>
-              <span className="text-xs text-slate-400">active sessions</span>
+              <span className="text-2xl font-bold text-main-text tracking-tight">0</span>
+              <span className="text-xs text-secondary-text">active sessions</span>
             </div>
-            <div className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+            <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-text">
+              <span className="w-1.5 h-1.5 rounded-full bg-border-main" />
               <span>Channels awaiting incoming traffic</span>
             </div>
           </div>
@@ -138,24 +135,24 @@ export default function DashboardPage() {
             onClick={() => setActiveTab("leads")}
             className={`p-5 rounded-xl border transition cursor-pointer text-left ${
               activeTab === "leads"
-                ? "bg-slate-900/90 border-indigo-500/50 ring-1 ring-indigo-500/20"
-                : "bg-slate-900/40 border-slate-800/80 hover:border-slate-700/80 hover:bg-slate-900/60"
+                ? "bg-white border-cherry ring-1 ring-cherry/30 shadow-xs"
+                : "bg-white border-border-main hover:border-cherry/40 hover:shadow-xs"
             }`}
           >
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <span className="text-xs font-semibold uppercase tracking-wider text-secondary-text">
                 Leads
               </span>
-              <div className="w-7 h-7 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center">
+              <div className="w-7 h-7 rounded-lg bg-cherry-soft text-cherry flex items-center justify-center border border-border-soft">
                 <LeadsIcon className="w-4 h-4" />
               </div>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-white tracking-tight">0</span>
-              <span className="text-xs text-slate-400">qualified prospects</span>
+              <span className="text-2xl font-bold text-main-text tracking-tight">0</span>
+              <span className="text-xs text-secondary-text">qualified prospects</span>
             </div>
-            <div className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+            <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-text">
+              <span className="w-1.5 h-1.5 rounded-full bg-border-main" />
               <span>Pipeline ready for capture</span>
             </div>
           </div>
@@ -165,40 +162,40 @@ export default function DashboardPage() {
             onClick={() => setActiveTab("appointments")}
             className={`p-5 rounded-xl border transition cursor-pointer text-left ${
               activeTab === "appointments"
-                ? "bg-slate-900/90 border-indigo-500/50 ring-1 ring-indigo-500/20"
-                : "bg-slate-900/40 border-slate-800/80 hover:border-slate-700/80 hover:bg-slate-900/60"
+                ? "bg-white border-cherry ring-1 ring-cherry/30 shadow-xs"
+                : "bg-white border-border-main hover:border-cherry/40 hover:shadow-xs"
             }`}
           >
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <span className="text-xs font-semibold uppercase tracking-wider text-secondary-text">
                 Appointments
               </span>
-              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+              <div className="w-7 h-7 rounded-lg bg-cherry-soft text-cherry flex items-center justify-center border border-border-soft">
                 <AppointmentsIcon className="w-4 h-4" />
               </div>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-white tracking-tight">0</span>
-              <span className="text-xs text-slate-400">scheduled</span>
+              <span className="text-2xl font-bold text-main-text tracking-tight">0</span>
+              <span className="text-xs text-secondary-text">scheduled</span>
             </div>
-            <div className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+            <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-text">
+              <span className="w-1.5 h-1.5 rounded-full bg-border-main" />
               <span>Calendar ready for sync</span>
             </div>
           </div>
         </section>
 
         {/* Tab Filter Pills */}
-        <div className="flex items-center gap-2 pt-2 border-b border-slate-800/80 pb-3">
-          <span className="text-xs text-slate-400 mr-2 font-medium">Filter view:</span>
+        <div className="flex items-center gap-2 pt-2 border-b border-border-main pb-3">
+          <span className="text-xs text-secondary-text mr-2 font-medium">Filter view:</span>
           {(["all", "conversations", "leads", "appointments"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`text-xs px-3 py-1.5 rounded-md font-medium capitalize transition ${
                 activeTab === tab
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : "bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                  ? "bg-cherry text-white shadow-xs"
+                  : "bg-white text-secondary-text border border-border-main hover:text-main-text hover:bg-cherry-soft"
               }`}
             >
               {tab === "all" ? "All Sections" : tab}
@@ -213,7 +210,7 @@ export default function DashboardPage() {
             <Card className="flex flex-col">
               <CardHeader>
                 <div className="flex items-center gap-2">
-                  <ConversationsIcon className="w-4 h-4 text-indigo-400" />
+                  <ConversationsIcon className="w-4 h-4 text-cherry" />
                   <CardTitle>Recent conversations</CardTitle>
                 </div>
                 <Badge variant="outline">0 Total</Badge>
@@ -234,7 +231,7 @@ export default function DashboardPage() {
             <Card className="flex flex-col">
               <CardHeader>
                 <div className="flex items-center gap-2">
-                  <LeadsIcon className="w-4 h-4 text-cyan-400" />
+                  <LeadsIcon className="w-4 h-4 text-cherry" />
                   <CardTitle>Recent leads</CardTitle>
                 </div>
                 <Badge variant="outline">0 Total</Badge>
@@ -255,7 +252,7 @@ export default function DashboardPage() {
             <Card className="flex flex-col">
               <CardHeader>
                 <div className="flex items-center gap-2">
-                  <AppointmentsIcon className="w-4 h-4 text-emerald-400" />
+                  <AppointmentsIcon className="w-4 h-4 text-cherry" />
                   <CardTitle>Upcoming appointments</CardTitle>
                 </div>
                 <Badge variant="outline">0 Total</Badge>
@@ -273,11 +270,11 @@ export default function DashboardPage() {
         </section>
 
         {/* Business Channels Readiness Overview */}
-        <section className="p-6 rounded-xl border border-slate-800/80 bg-slate-900/30">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4 pb-4 border-b border-slate-800/60">
+        <section className="p-6 rounded-xl border border-border-main bg-white shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4 pb-4 border-b border-border-soft">
             <div>
-              <h4 className="text-sm font-semibold text-white">Channel Integration Status</h4>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <h4 className="text-sm font-semibold text-main-text">Channel Integration Status</h4>
+              <p className="text-xs text-secondary-text mt-0.5">
                 Multi-channel communication endpoints ready for business configuration
               </p>
             </div>
@@ -287,43 +284,43 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-4 rounded-lg bg-slate-950/60 border border-slate-800/70 flex items-center justify-between">
+            <div className="p-4 rounded-lg bg-warm-ivory border border-border-main flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-xs font-semibold">
+                <div className="w-8 h-8 rounded-lg bg-cherry-soft text-cherry border border-border-soft flex items-center justify-center text-xs font-semibold">
                   WEB
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-slate-200">Web Chat Widget</p>
-                  <p className="text-[11px] text-slate-400">Ready to embed</p>
+                  <p className="text-xs font-medium text-main-text">Web Chat Widget</p>
+                  <p className="text-[11px] text-secondary-text">Ready to embed</p>
                 </div>
               </div>
-              <span className="w-2 h-2 rounded-full bg-slate-600" title="Standby" />
+              <span className="w-2 h-2 rounded-full bg-border-main" title="Standby" />
             </div>
 
-            <div className="p-4 rounded-lg bg-slate-950/60 border border-slate-800/70 flex items-center justify-between">
+            <div className="p-4 rounded-lg bg-warm-ivory border border-border-main flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xs font-semibold">
+                <div className="w-8 h-8 rounded-lg bg-status-success/10 text-status-success border border-status-success/20 flex items-center justify-center text-xs font-semibold">
                   WA
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-slate-200">WhatsApp Cloud</p>
-                  <p className="text-[11px] text-slate-400">Cloud API gateway</p>
+                  <p className="text-xs font-medium text-main-text">WhatsApp Cloud</p>
+                  <p className="text-[11px] text-secondary-text">Cloud API gateway</p>
                 </div>
               </div>
-              <span className="w-2 h-2 rounded-full bg-slate-600" title="Standby" />
+              <span className="w-2 h-2 rounded-full bg-border-main" title="Standby" />
             </div>
 
-            <div className="p-4 rounded-lg bg-slate-950/60 border border-slate-800/70 flex items-center justify-between">
+            <div className="p-4 rounded-lg bg-warm-ivory border border-border-main flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-xs font-semibold">
+                <div className="w-8 h-8 rounded-lg bg-cherry-soft text-cherry border border-border-soft flex items-center justify-center text-xs font-semibold">
                   VOX
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-slate-200">Voice Simulator</p>
-                  <p className="text-[11px] text-slate-400">Browser audio pipeline</p>
+                  <p className="text-xs font-medium text-main-text">Voice Simulator</p>
+                  <p className="text-[11px] text-secondary-text">Browser audio pipeline</p>
                 </div>
               </div>
-              <span className="w-2 h-2 rounded-full bg-slate-600" title="Standby" />
+              <span className="w-2 h-2 rounded-full bg-border-main" title="Standby" />
             </div>
           </div>
         </section>

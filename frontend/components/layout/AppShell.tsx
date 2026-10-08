@@ -24,7 +24,7 @@ export function AppShell({ children }: AppShellProps) {
   };
 
   return (
-    <div className="min-h-screen flex bg-slate-950 text-slate-100">
+    <div className="min-h-screen flex bg-warm-ivory text-main-text">
       {/* Sidebar */}
       <Sidebar
         isOpen={sidebarOpen}

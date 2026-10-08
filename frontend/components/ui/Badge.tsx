@@ -2,7 +2,7 @@ import React from "react";
 import { cn } from "@/lib/utils";
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  variant?: "default" | "success" | "warning" | "indigo" | "outline";
+  variant?: "default" | "success" | "warning" | "indigo" | "cherry" | "outline";
 }
 
 export function Badge({
@@ -12,11 +12,12 @@ export function Badge({
   ...props
 }: BadgeProps) {
   const variantStyles = {
-    default: "bg-slate-800 text-slate-300 border-slate-700/80",
-    success: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-    warning: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-    indigo: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
-    outline: "bg-transparent text-slate-400 border-slate-800",
+    default: "bg-warm-ivory text-secondary-text border-border-main",
+    success: "bg-status-success/10 text-status-success border-status-success/20",
+    warning: "bg-status-warning/10 text-status-warning border-status-warning/20",
+    indigo: "bg-cherry-soft text-cherry border-border-soft",
+    cherry: "bg-cherry-soft text-cherry border-border-soft",
+    outline: "bg-transparent text-secondary-text border-border-main",
   };
 
   return (

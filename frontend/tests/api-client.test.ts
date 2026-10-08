@@ -1,4 +1,4 @@
-import test, { describe, beforeEach, afterEach } from "node:test";
+import test, { describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import {
   ApiClient,
@@ -38,7 +38,7 @@ describe("Frontend API Client Foundation", () => {
       redis: { status: "healthy" },
     };
 
-    globalThis.fetch = async (input, init) => {
+    globalThis.fetch = async (input) => {
       const url = String(input);
       assert.ok(url.includes("/health"));
       assert.ok(url.includes("full=true"));

@@ -15,13 +15,13 @@ export function Button({
 }: ButtonProps) {
   const variantStyles = {
     primary:
-      "bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm shadow-indigo-600/30 active:scale-[0.98]",
+      "bg-cherry hover:bg-cherry-hover text-white shadow-xs shadow-cherry/20 active:scale-[0.98]",
     secondary:
-      "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 active:scale-[0.98]",
+      "bg-cherry-soft hover:bg-cherry-light text-cherry border border-border-main active:scale-[0.98]",
     outline:
-      "border border-slate-800 hover:border-slate-700 text-slate-300 hover:bg-slate-900 active:scale-[0.98]",
+      "border border-border-main hover:border-cherry/50 text-main-text hover:bg-cherry-soft active:scale-[0.98]",
     ghost:
-      "text-slate-400 hover:text-white hover:bg-slate-800/60",
+      "text-secondary-text hover:text-main-text hover:bg-cherry-soft",
   };
 
   const sizeStyles = {
@@ -33,7 +33,7 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center font-medium transition duration-150 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 disabled:opacity-50 disabled:cursor-not-allowed",
+        "inline-flex items-center justify-center font-medium transition duration-150 focus:outline-none focus:ring-2 focus:ring-cherry/30 disabled:opacity-50 disabled:cursor-not-allowed",
         variantStyles[variant],
         sizeStyles[size],
         className

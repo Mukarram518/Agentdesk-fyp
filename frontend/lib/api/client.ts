@@ -3,9 +3,8 @@
  * Centralized HTTP layer between Next.js frontend and FastAPI backend.
  */
 
-import type { HealthResponse, RequestOptions, HttpMethod } from "@/types/api";
+import type { HealthResponse, RequestOptions } from "@/types/api";
 import {
-  ApiClientError,
   ApiHttpError,
   ApiNetworkError,
   ApiParseError,
