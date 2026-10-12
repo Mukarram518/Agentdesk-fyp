@@ -176,4 +176,61 @@ describe("Frontend API Client Foundation", () => {
       }
     );
   });
+
+  test("defaults to http://localhost:8000 when NEXT_PUBLIC_API_URL is unset", () => {
+    const originalEnv = process.env.NEXT_PUBLIC_API_URL;
+    try {
+      delete process.env.NEXT_PUBLIC_API_URL;
+      const client = new ApiClient();
+      assert.strictEqual(client.baseUrl, "http://localhost:8000");
+    } finally {
+      process.env.NEXT_PUBLIC_API_URL = originalEnv;
+    }
+  });
+
+  test("supports explicitly configured NEXT_PUBLIC_API_URL", () => {
+    const originalEnv = process.env.NEXT_PUBLIC_API_URL;
+    try {
+      process.env.NEXT_PUBLIC_API_URL = "http://api.production.domain:8000";
+      const client = new ApiClient();
+      assert.strictEqual(client.baseUrl, "http://api.production.domain:8000");
+    } finally {
+      process.env.NEXT_PUBLIC_API_URL = originalEnv;
+    }
+  });
+
+  test("matches browser window hostname dynamically in browser context", () => {
+    const originalEnv = process.env.NEXT_PUBLIC_API_URL;
+    const originalWindow = (globalThis as unknown as { window?: unknown }).window;
+    try {
+      delete process.env.NEXT_PUBLIC_API_URL;
+      (globalThis as unknown as { window: unknown }).window = {
+        location: { hostname: "127.0.0.1", protocol: "http:" },
+      };
+      const client = new ApiClient();
+      assert.strictEqual(client.baseUrl, "http://127.0.0.1:8000");
+    } finally {
+      process.env.NEXT_PUBLIC_API_URL = originalEnv;
+      (globalThis as unknown as { window?: unknown }).window = originalWindow;
+    }
+  });
+
+  test("ensures credentials: 'include' is sent by default and cannot be overwritten by fetchInit spread", async () => {
+    let capturedOptions: RequestInit | undefined;
+    globalThis.fetch = async (_input, init) => {
+      capturedOptions = init;
+      return new Response(JSON.stringify({ status: "healthy" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    };
+
+    const client = new ApiClient("http://localhost:8000");
+    await client.request("/health", {
+      headers: { "X-Test": "1" },
+      cache: "no-store",
+    });
+
+    assert.strictEqual(capturedOptions?.credentials, "include");
+  });
 });

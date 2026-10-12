@@ -84,6 +84,23 @@ class Settings(BaseSettings):
             return self.REDIS_URL
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/0"
 
+    # Authentication & Session Management
+    SESSION_COOKIE_NAME: str = "agentdesk_session"
+    SESSION_EXPIRE_SECONDS: int = 60 * 60 * 24 * 7  # 7 days
+    SESSION_COOKIE_SECURE: bool = False
+    SESSION_COOKIE_SAMESITE: str = "lax"
+    SESSION_COOKIE_HTTPONLY: bool = True
+
+    # Rate Limiting
+    AUTH_RATE_LIMIT_LOGIN: int = 10  # Max login attempts per minute per IP
+    AUTH_RATE_LIMIT_REGISTER: int = 5  # Max registration attempts per minute per IP
+
+    # Google OAuth
+    GOOGLE_CLIENT_ID: Union[str, None] = None
+    GOOGLE_CLIENT_SECRET: Union[str, None] = None
+    GOOGLE_REDIRECT_URI: Union[str, None] = "http://localhost:8000/api/v1/auth/google/callback"
+    FRONTEND_URL: str = "http://localhost:3000"
+
 
 @lru_cache()
 def get_settings() -> Settings:

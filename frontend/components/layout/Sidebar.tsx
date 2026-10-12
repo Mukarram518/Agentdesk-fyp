@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   DashboardIcon,
   ConversationsIcon,
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api/client";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -40,6 +42,8 @@ export function Sidebar({
   activeItem = "dashboard",
   onSelectItem,
 }: SidebarProps) {
+  const router = useRouter();
+  const { user, logout } = useAuth();
   const [systemOnline, setSystemOnline] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -50,6 +54,19 @@ export function Sidebar({
     };
     checkSystem();
   }, []);
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace("/login");
+  };
+
+  const userInitial = user?.full_name
+    ? user.full_name[0].toUpperCase()
+    : user?.email
+    ? user.email[0].toUpperCase()
+    : "A";
+  const userDisplayName = user?.full_name || user?.email || "User Account";
+  const userRoleText = user?.email || "Owner Account";
 
   return (
     <>
@@ -188,18 +205,35 @@ export function Sidebar({
           </div>
 
           {/* User Account */}
-          <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white border border-border-soft">
-            <div className="w-7 h-7 rounded-full bg-cherry-soft border border-border-main flex items-center justify-center text-xs font-semibold text-cherry">
-              M
+          <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white border border-border-soft">
+            <div className="w-7 h-7 rounded-full bg-cherry-soft border border-border-main flex items-center justify-center text-xs font-semibold text-cherry shrink-0">
+              {userInitial}
             </div>
             <div className="flex flex-col min-w-0 flex-1">
               <span className="text-xs font-medium text-main-text truncate">
-                Mukarram Ali
+                {userDisplayName}
               </span>
               <span className="text-[10px] text-muted-text truncate">
-                Owner Account
+                {userRoleText}
               </span>
             </div>
+            <button
+              id="sidebar-logout-btn"
+              type="button"
+              onClick={handleLogout}
+              className="p-1 rounded text-muted-text hover:text-cherry hover:bg-cherry-soft transition shrink-0"
+              title="Sign out"
+              aria-label="Sign out"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
+              </svg>
+            </button>
           </div>
         </div>
       </aside>

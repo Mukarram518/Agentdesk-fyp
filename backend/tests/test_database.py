@@ -83,7 +83,7 @@ def test_alembic_migration_configuration():
 
     # Verify head revision
     head_rev = script.get_current_head()
-    assert head_rev in ("0001_initial_schema", "0002_core_domain_schema")
+    assert head_rev in ("0001_initial_schema", "0002_core_domain_schema", "0003_authentication")
 
 
 @pytest.mark.asyncio

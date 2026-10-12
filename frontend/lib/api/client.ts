@@ -4,6 +4,14 @@
  */
 
 import type { HealthResponse, RequestOptions } from "@/types/api";
+import type {
+  AuthUser,
+  RegisterPayload,
+  LoginPayload,
+  AuthResponse,
+  LogoutResponse,
+  GoogleAuthUrlResponse,
+} from "@/types/auth";
 import {
   ApiHttpError,
   ApiNetworkError,
@@ -13,16 +21,41 @@ import {
 
 export * from "./errors";
 export type { HealthResponse } from "@/types/api";
+export type {
+  AuthUser,
+  RegisterPayload,
+  LoginPayload,
+  AuthResponse,
+  LogoutResponse,
+  GoogleAuthUrlResponse,
+} from "@/types/auth";
 
-const DEFAULT_BASE_URL = "http://127.0.0.1:8000";
+export const DEFAULT_BASE_URL = "http://localhost:8000";
 const DEFAULT_TIMEOUT_MS = 15000;
+
+/**
+ * Resolves the default backend base URL for API requests.
+ * In a browser environment, aligns the API host with the current frontend hostname
+ * (e.g. http://localhost:8000 when accessed via localhost:3000) so that session cookies
+ * are treated as same-site and not blocked by browser SameSite=Lax rules.
+ */
+export function resolveDefaultBaseUrl(): string {
+  if (typeof window !== "undefined" && window.location?.hostname) {
+    const protocol = window.location.protocol || "http:";
+    return `${protocol}//${window.location.hostname}:8000`;
+  }
+  return DEFAULT_BASE_URL;
+}
 
 export class ApiClient {
   readonly baseUrl: string;
   private readonly defaultTimeoutMs: number;
 
   constructor(baseUrl?: string, defaultTimeoutMs: number = DEFAULT_TIMEOUT_MS) {
-    const rawUrl = baseUrl || process.env.NEXT_PUBLIC_API_URL || DEFAULT_BASE_URL;
+    const rawUrl =
+      baseUrl ||
+      (process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.trim()) ||
+      resolveDefaultBaseUrl();
     // Normalize by stripping trailing slash
     this.baseUrl = rawUrl.replace(/\/+$/, "");
     this.defaultTimeoutMs = defaultTimeoutMs;
@@ -38,6 +71,7 @@ export class ApiClient {
       headers: customHeaders,
       body,
       timeoutMs = this.defaultTimeoutMs,
+      credentials = "include",
       ...fetchInit
     } = options;
 
@@ -82,11 +116,12 @@ export class ApiClient {
     let response: Response;
     try {
       response = await fetch(url.toString(), {
+        ...fetchInit,
         method,
         headers,
         body: serializedBody,
         signal: controller.signal,
-        ...fetchInit,
+        credentials,
       });
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") {
@@ -180,6 +215,30 @@ export class ApiClient {
     } catch {
       return false;
     }
+  }
+
+  // Authentication API methods
+  async register(payload: RegisterPayload): Promise<AuthResponse> {
+    return this.post<AuthResponse>("/api/v1/auth/register", payload);
+  }
+
+  async login(payload: LoginPayload): Promise<AuthResponse> {
+    return this.post<AuthResponse>("/api/v1/auth/login", payload);
+  }
+
+  async logout(): Promise<LogoutResponse> {
+    return this.post<LogoutResponse>("/api/v1/auth/logout");
+  }
+
+  async getCurrentUser(): Promise<AuthUser> {
+    return this.get<AuthUser>("/api/v1/auth/me", { cache: "no-store" });
+  }
+
+  async getGoogleAuthUrl(): Promise<string> {
+    const res = await this.get<GoogleAuthUrlResponse>("/api/v1/auth/google", {
+      params: { redirect: false },
+    });
+    return res.authorization_url;
   }
 }
 

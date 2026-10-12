@@ -13,6 +13,15 @@ from app.core.config import get_settings
 get_settings.cache_clear()
 
 from app.main import app
+from app.core.rate_limit import reset_rate_limits
+
+
+@pytest.fixture(autouse=True)
+async def auto_reset_rate_limits():
+    """Ensures each test starts with clean rate limits."""
+    await reset_rate_limits()
+    yield
+    await reset_rate_limits()
 
 
 @pytest.fixture

@@ -15,6 +15,10 @@ export class ApiClientError extends Error {
   readonly status?: number;
   readonly details?: unknown;
 
+  get statusCode(): number | undefined {
+    return this.status;
+  }
+
   constructor(
     message: string,
     code: ApiErrorCode = "UNKNOWN_ERROR",

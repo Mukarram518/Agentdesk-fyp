@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -13,9 +14,35 @@ import {
   SparklesIcon,
   ArrowRightIcon,
 } from "@/components/ui/icons";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<"all" | "conversations" | "leads" | "appointments">("all");
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [isLoading, isAuthenticated, router]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-warm-ivory">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-cherry border-t-transparent animate-spin" />
+          <p className="text-xs text-secondary-text font-medium">Verifying session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  const displayName = user?.full_name || (user?.email ? user.email.split("@")[0] : "Business Owner");
 
   return (
     <AppShell>
@@ -24,7 +51,7 @@ export default function DashboardPage() {
         <section className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-main-text">
-              Good morning, Mukarram
+              Good morning, {displayName}
             </h2>
             <p className="text-sm text-secondary-text mt-1">
               Here&apos;s what&apos;s happening with your business.

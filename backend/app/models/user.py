@@ -11,14 +11,11 @@ from app.models import Base
 
 if TYPE_CHECKING:
     from app.models.business_member import BusinessMember
+    from app.models.session import UserSession
 
 
 class User(Base):
-    """User entity representing registered users of the platform.
-
-    Note: Authentication fields (e.g. password_hash, OAuth tokens) are intentionally
-    omitted in Phase 2 and will be introduced in subsequent authentication phases.
-    """
+    """User entity representing registered users of the platform."""
 
     __tablename__ = "users"
 
@@ -34,8 +31,26 @@ class User(Base):
         index=True,
         nullable=False,
     )
+    password_hash: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        default=None,
+    )
     full_name: Mapped[Optional[str]] = mapped_column(
         String(255),
+        nullable=True,
+        default=None,
+    )
+    is_verified: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default=func.false(),
+        nullable=False,
+    )
+    google_sub: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        unique=True,
+        index=True,
         nullable=True,
         default=None,
     )
@@ -60,6 +75,11 @@ class User(Base):
     # Relationships
     memberships: Mapped[List["BusinessMember"]] = relationship(
         "BusinessMember",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    sessions: Mapped[List["UserSession"]] = relationship(
+        "UserSession",
         back_populates="user",
         cascade="all, delete-orphan",
     )

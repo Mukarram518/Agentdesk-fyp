@@ -14,6 +14,7 @@ class Base(DeclarativeBase):
 from app.models.user import User  # noqa: E402
 from app.models.business import Business  # noqa: E402
 from app.models.business_member import BusinessMember, MemberRole  # noqa: E402
+from app.models.session import UserSession  # noqa: E402
 
 __all__ = [
     "Base",
@@ -21,4 +22,5 @@ __all__ = [
     "Business",
     "BusinessMember",
     "MemberRole",
+    "UserSession",
 ]
