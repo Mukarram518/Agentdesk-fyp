@@ -12,6 +12,10 @@ import type {
   LogoutResponse,
   GoogleAuthUrlResponse,
 } from "@/types/auth";
+import type {
+  BusinessCreatePayload,
+  BusinessResponse,
+} from "@/types/business";
 import {
   ApiHttpError,
   ApiNetworkError,
@@ -29,6 +33,11 @@ export type {
   LogoutResponse,
   GoogleAuthUrlResponse,
 } from "@/types/auth";
+export type {
+  BusinessCreatePayload,
+  BusinessResponse,
+  Business,
+} from "@/types/business";
 
 export const DEFAULT_BASE_URL = "http://localhost:8000";
 const DEFAULT_TIMEOUT_MS = 15000;
@@ -239,6 +248,23 @@ export class ApiClient {
       params: { redirect: false },
     });
     return res.authorization_url;
+  }
+
+  // Business API methods
+  async createBusiness(payload: BusinessCreatePayload): Promise<BusinessResponse> {
+    return this.post<BusinessResponse>("/api/v1/businesses", payload);
+  }
+
+  async listBusinesses(): Promise<BusinessResponse[]> {
+    return this.get<BusinessResponse[]>("/api/v1/businesses", { cache: "no-store" });
+  }
+
+  async getCurrentBusiness(): Promise<BusinessResponse> {
+    return this.get<BusinessResponse>("/api/v1/businesses/current", { cache: "no-store" });
+  }
+
+  async getBusinessById(businessId: string): Promise<BusinessResponse> {
+    return this.get<BusinessResponse>(`/api/v1/businesses/${businessId}`, { cache: "no-store" });
   }
 }
 
