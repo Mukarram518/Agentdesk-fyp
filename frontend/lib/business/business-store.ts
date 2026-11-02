@@ -18,6 +18,13 @@ export interface BusinessContextType extends BusinessState {
   createBusiness: (payload: BusinessCreatePayload) => Promise<BusinessResponse>;
 }
 
+export const INITIAL_BUSINESS_STATE: BusinessState = Object.freeze({
+  businesses: [] as BusinessResponse[],
+  currentBusiness: null,
+  isLoadingBusiness: false,
+  businessError: null,
+}) as BusinessState;
+
 export class BusinessStore {
   private state: BusinessState;
   private listeners = new Set<() => void>();
@@ -28,12 +35,7 @@ export class BusinessStore {
 
   constructor(client: ApiClient = apiClient) {
     this.client = client;
-    this.state = {
-      businesses: [],
-      currentBusiness: null,
-      isLoadingBusiness: false,
-      businessError: null,
-    };
+    this.state = INITIAL_BUSINESS_STATE;
   }
 
   getSnapshot = (): BusinessState => {
@@ -41,12 +43,7 @@ export class BusinessStore {
   };
 
   getServerSnapshot = (): BusinessState => {
-    return {
-      businesses: [],
-      currentBusiness: null,
-      isLoadingBusiness: false,
-      businessError: null,
-    };
+    return INITIAL_BUSINESS_STATE;
   };
 
   subscribe = (listener: () => void): (() => void) => {
@@ -71,6 +68,17 @@ export class BusinessStore {
   handleAuthChange = (isAuthenticated: boolean, userId: string | null) => {
     if (!isAuthenticated || !userId) {
       // User is logged out or unauthenticated
+      if (
+        !this.isAuthenticated &&
+        this.currentUserId === null &&
+        this.state.businesses.length === 0 &&
+        this.state.currentBusiness === null &&
+        !this.state.isLoadingBusiness &&
+        this.state.businessError === null
+      ) {
+        return;
+      }
+
       this.activeRequestId++; // Invalidate any in-flight promises
       this.isAuthenticated = false;
       this.currentUserId = null;
@@ -100,12 +108,19 @@ export class BusinessStore {
    */
   refreshBusinesses = async (): Promise<void> => {
     if (!this.isAuthenticated || !this.currentUserId) {
-      this.setState({
-        businesses: [],
-        currentBusiness: null,
-        isLoadingBusiness: false,
-        businessError: null,
-      });
+      if (
+        this.state.businesses.length > 0 ||
+        this.state.currentBusiness !== null ||
+        this.state.isLoadingBusiness ||
+        this.state.businessError !== null
+      ) {
+        this.setState({
+          businesses: [],
+          currentBusiness: null,
+          isLoadingBusiness: false,
+          businessError: null,
+        });
+      }
       return;
     }
 

@@ -1,6 +1,6 @@
 import test, { describe, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { BusinessStore } from "../lib/business/business-store";
+import { BusinessStore, INITIAL_BUSINESS_STATE } from "../lib/business/business-store";
 import { ApiClient, ApiHttpError, ApiNetworkError } from "../lib/api/client";
 import type { BusinessResponse } from "../types/business";
 
@@ -347,5 +347,49 @@ describe("Frontend Business State Store", () => {
     assert.strictEqual(state.currentBusiness?.id, "biz-fast-created");
     assert.strictEqual(state.businesses.length, 1);
     assert.strictEqual(state.businesses[0].id, "biz-fast-created");
+  });
+
+  test("getServerSnapshot returns a cached, stable snapshot reference on repeated calls", () => {
+    const store = new BusinessStore(mockClient);
+    const snap1 = store.getServerSnapshot();
+    const snap2 = store.getServerSnapshot();
+    const snap3 = store.getServerSnapshot();
+
+    // Must be identical object references (Object.is) to avoid React useSyncExternalStore infinite loops
+    assert.strictEqual(snap1, snap2);
+    assert.strictEqual(snap2, snap3);
+    assert.strictEqual(snap1, INITIAL_BUSINESS_STATE);
+  });
+
+  test("getSnapshot returns the same object reference until the store state actually changes", async () => {
+    mockClient.listBusinesses = async () => sampleBusinesses;
+    mockClient.getCurrentBusiness = async () => sampleBusinesses[0];
+
+    const store = new BusinessStore(mockClient);
+
+    // Initial snapshot references must be stable across multiple reads
+    const initialSnap1 = store.getSnapshot();
+    const initialSnap2 = store.getSnapshot();
+    assert.strictEqual(initialSnap1, initialSnap2);
+    assert.strictEqual(initialSnap1, INITIAL_BUSINESS_STATE);
+
+    // Repeated redundant unauthenticated calls do NOT churn reference
+    store.handleAuthChange(false, null);
+    const postAuthChangeSnap = store.getSnapshot();
+    assert.strictEqual(postAuthChangeSnap, initialSnap1);
+
+    // State change creates a new snapshot reference
+    store.handleAuthChange(true, "user-123");
+    const loadingSnap1 = store.getSnapshot();
+    const loadingSnap2 = store.getSnapshot();
+    assert.notStrictEqual(loadingSnap1, initialSnap1);
+    assert.strictEqual(loadingSnap1, loadingSnap2);
+
+    await store.refreshBusinesses();
+    const loadedSnap1 = store.getSnapshot();
+    const loadedSnap2 = store.getSnapshot();
+    assert.notStrictEqual(loadedSnap1, loadingSnap1);
+    assert.strictEqual(loadedSnap1, loadedSnap2);
+    assert.strictEqual(loadedSnap1.businesses.length, 2);
   });
 });

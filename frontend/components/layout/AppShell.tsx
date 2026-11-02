@@ -6,9 +6,10 @@ import { Header } from "./Header";
 
 interface AppShellProps {
   children: React.ReactNode;
+  onConfigureWorkspace?: () => void;
 }
 
-export function AppShell({ children }: AppShellProps) {
+export function AppShell({ children, onConfigureWorkspace }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeItem, setActiveItem] = useState("dashboard");
 
@@ -38,6 +39,7 @@ export function AppShell({ children }: AppShellProps) {
         <Header
           onOpenSidebar={() => setSidebarOpen(true)}
           activeItemTitle={titles[activeItem] || "Dashboard"}
+          onConfigureWorkspace={onConfigureWorkspace}
         />
         <main className="flex-1 p-6 sm:p-8 lg:p-10 max-w-7xl w-full mx-auto">
           {children}

@@ -17,6 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { useBusiness } from "@/lib/business/BusinessContext";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -44,6 +45,7 @@ export function Sidebar({
 }: SidebarProps) {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { currentBusiness, isLoadingBusiness, businessError } = useBusiness();
   const [systemOnline, setSystemOnline] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -110,27 +112,74 @@ export function Sidebar({
           </button>
         </div>
 
-        {/* Business Workspace Switcher Placeholder */}
+        {/* Business Workspace Switcher */}
         <div className="p-3">
-          <button
-            type="button"
-            className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-white border border-border-main hover:border-cherry/40 transition text-left group shadow-xs"
-          >
-            <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-6 h-6 rounded bg-cherry-light text-cherry border border-cherry/20 text-xs font-semibold flex items-center justify-center shrink-0">
-                M
+          {isLoadingBusiness ? (
+            <div className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white border border-border-main shadow-xs animate-pulse">
+              <div className="w-6 h-6 rounded bg-cherry-light/50 shrink-0" />
+              <div className="flex-1 min-w-0 space-y-1">
+                <div className="w-20 h-3 bg-warm-ivory border border-border-soft rounded" />
+                <div className="w-14 h-2.5 bg-warm-ivory border border-border-soft rounded" />
               </div>
-              <div className="truncate">
+            </div>
+          ) : businessError ? (
+            <div className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg bg-status-error/5 border border-status-error/20 text-left shadow-xs">
+              <div className="w-6 h-6 rounded bg-status-error/10 text-status-error border border-status-error/20 text-xs font-semibold flex items-center justify-center shrink-0">
+                !
+              </div>
+              <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium text-main-text truncate leading-none">
-                  Mukarram&apos;s Business
+                  Workspace Error
                 </p>
                 <p className="text-[10px] text-secondary-text mt-0.5 truncate">
-                  Ready to configure
+                  Unable to load workspace
                 </p>
               </div>
             </div>
-            <ChevronDownIcon className="w-3.5 h-3.5 text-secondary-text group-hover:text-main-text shrink-0" />
-          </button>
+          ) : currentBusiness ? (
+            <button
+              type="button"
+              className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-white border border-border-main hover:border-cherry/40 transition text-left group shadow-xs"
+            >
+              <div className="flex items-center gap-2.5 overflow-hidden min-w-0 flex-1">
+                <div className="w-6 h-6 rounded bg-cherry-light text-cherry border border-cherry/20 text-xs font-semibold flex items-center justify-center shrink-0">
+                  {(currentBusiness.name.trim()[0] || "B").toUpperCase()}
+                </div>
+                <div className="truncate min-w-0 flex-1">
+                  <p
+                    className="text-xs font-medium text-main-text truncate leading-none"
+                    title={currentBusiness.name}
+                  >
+                    {currentBusiness.name}
+                  </p>
+                  <p className="text-[10px] text-secondary-text mt-0.5 truncate capitalize">
+                    {currentBusiness.role || "Member"}
+                  </p>
+                </div>
+              </div>
+              <ChevronDownIcon className="w-3.5 h-3.5 text-secondary-text group-hover:text-main-text shrink-0 ml-1.5" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-white border border-border-main hover:border-cherry/40 transition text-left group shadow-xs"
+            >
+              <div className="flex items-center gap-2.5 overflow-hidden min-w-0 flex-1">
+                <div className="w-6 h-6 rounded bg-cherry-soft text-cherry border border-border-soft text-xs font-semibold flex items-center justify-center shrink-0">
+                  —
+                </div>
+                <div className="truncate min-w-0 flex-1">
+                  <p className="text-xs font-medium text-main-text truncate leading-none">
+                    No Workspace
+                  </p>
+                  <p className="text-[10px] text-secondary-text mt-0.5 truncate">
+                    Set up your business
+                  </p>
+                </div>
+              </div>
+              <ChevronDownIcon className="w-3.5 h-3.5 text-secondary-text group-hover:text-main-text shrink-0 ml-1.5" />
+            </button>
+          )}
         </div>
 
         {/* Navigation Items */}

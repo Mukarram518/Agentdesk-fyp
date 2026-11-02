@@ -13,12 +13,22 @@ import {
   AppointmentsIcon,
   SparklesIcon,
   ArrowRightIcon,
+  CheckCircleIcon,
 } from "@/components/ui/icons";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { useBusiness } from "@/lib/business/BusinessContext";
+import { BusinessOnboardingModal } from "@/components/business/BusinessOnboardingModal";
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading } = useAuth();
+  const {
+    currentBusiness,
+    isLoadingBusiness,
+    businessError,
+    refreshBusinesses,
+  } = useBusiness();
+  const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | "conversations" | "leads" | "appointments">("all");
 
   useEffect(() => {
@@ -45,7 +55,7 @@ export default function DashboardPage() {
   const displayName = user?.full_name || (user?.email ? user.email.split("@")[0] : "Business Owner");
 
   return (
-    <AppShell>
+    <AppShell onConfigureWorkspace={() => setIsOnboardingModalOpen(true)}>
       <div className="space-y-8">
         {/* Top Greeting Section */}
         <section className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -60,7 +70,7 @@ export default function DashboardPage() {
 
           <div className="flex items-center gap-2.5">
             <Badge variant="cherry" className="text-xs py-1 px-3">
-              Workspace Initialized
+              {currentBusiness ? currentBusiness.name : "Workspace Initialized"}
             </Badge>
             <Button variant="secondary" size="sm" className="text-xs">
               Workspace Settings
@@ -71,28 +81,89 @@ export default function DashboardPage() {
         {/* Workspace Readiness / Setup Guidance Banner */}
         <section className="p-6 rounded-2xl border border-border-main bg-gradient-to-r from-sidebar-bg via-warm-ivory to-white shadow-xs relative overflow-hidden">
           <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-64 h-64 bg-cherry-light/30 rounded-full blur-3xl pointer-events-none" />
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-            <div className="max-w-2xl">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-cherry-soft text-cherry border border-border-soft mb-3">
-                <SparklesIcon className="w-3.5 h-3.5 text-cherry" />
-                <span>Workspace Ready for Setup</span>
-              </div>
-              <h3 className="text-lg sm:text-xl font-semibold text-main-text">
-                Complete your business setup to activate AI agents
-              </h3>
-              <p className="text-xs sm:text-sm text-secondary-text mt-1.5 leading-relaxed">
-                Connect your business knowledge base and communication channels. Once configured,
-                your AI agents will automatically interact with visitors, qualify leads, and manage bookings.
-              </p>
-            </div>
 
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button variant="primary" size="sm" className="gap-2 text-xs">
-                <span>Start Configuration</span>
-                <ArrowRightIcon className="w-3.5 h-3.5" />
+          {businessError ? (
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="max-w-2xl">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-status-error/10 text-status-error border border-status-error/20 mb-3">
+                  <span>Workspace Error</span>
+                </div>
+                <h3 className="text-lg sm:text-xl font-semibold text-main-text">
+                  Unable to load workspace details
+                </h3>
+                <p className="text-xs sm:text-sm text-secondary-text mt-1.5 leading-relaxed">
+                  {businessError}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => refreshBusinesses()}
+                className="text-xs self-start sm:self-center"
+              >
+                Retry
               </Button>
             </div>
-          </div>
+          ) : isLoadingBusiness ? (
+            <div className="relative z-10 animate-pulse space-y-4">
+              <div className="w-36 h-5 bg-cherry-light/40 rounded-full" />
+              <div className="w-2/3 h-7 bg-warm-ivory border border-border-soft rounded-lg" />
+              <div className="w-full max-w-xl h-4 bg-warm-ivory border border-border-soft rounded-md" />
+              <div className="pt-2 flex items-center gap-2 text-xs text-secondary-text font-medium">
+                <div className="w-3.5 h-3.5 rounded-full border-2 border-cherry border-t-transparent animate-spin" />
+                <span>Loading workspace state...</span>
+              </div>
+            </div>
+          ) : currentBusiness ? (
+            <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+              <div className="max-w-2xl">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-cherry-soft text-cherry border border-border-soft mb-3">
+                  <CheckCircleIcon className="w-3.5 h-3.5 text-cherry" />
+                  <span>Workspace Created</span>
+                </div>
+                <h3 className="text-lg sm:text-xl font-semibold text-main-text">
+                  Welcome to {currentBusiness.name}
+                </h3>
+                <p className="text-xs sm:text-sm text-secondary-text mt-1.5 leading-relaxed">
+                  Your business workspace has been created successfully. Next steps include adding knowledge base documents, connecting communication channels, and configuring AI agents.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Badge variant="cherry" className="text-xs py-1.5 px-3 font-medium">
+                  Workspace Active
+                </Badge>
+              </div>
+            </div>
+          ) : (
+            <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+              <div className="max-w-2xl">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-cherry-soft text-cherry border border-border-soft mb-3">
+                  <SparklesIcon className="w-3.5 h-3.5 text-cherry" />
+                  <span>Workspace Ready for Setup</span>
+                </div>
+                <h3 className="text-lg sm:text-xl font-semibold text-main-text">
+                  Complete your business setup to activate AI agents
+                </h3>
+                <p className="text-xs sm:text-sm text-secondary-text mt-1.5 leading-relaxed">
+                  Connect your business knowledge base and communication channels. Once configured,
+                  your AI agents will automatically interact with visitors, qualify leads, and manage bookings.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setIsOnboardingModalOpen(true)}
+                  className="gap-2 text-xs"
+                >
+                  <span>Start Configuration</span>
+                  <ArrowRightIcon className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* 3 Onboarding Steps */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6 pt-6 border-t border-border-soft">
@@ -352,6 +423,11 @@ export default function DashboardPage() {
           </div>
         </section>
       </div>
+
+      <BusinessOnboardingModal
+        isOpen={isOnboardingModalOpen}
+        onClose={() => setIsOnboardingModalOpen(false)}
+      />
     </AppShell>
   );
 }
