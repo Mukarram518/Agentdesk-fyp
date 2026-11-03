@@ -38,11 +38,12 @@ class KnowledgeRepository:
         self,
         db: AsyncSession,
         business_id: uuid.UUID,
-        question: str,
-        answer: str,
+        question: Optional[str] = None,
+        answer: str = "",
         tags: Optional[List[Any]] = None,
         language: str = KnowledgeLanguage.EN.value,
         embedding: Optional[List[float]] = None,
+        embedding_stale: bool = False,
     ) -> KnowledgeBaseEntry:
         """Creates and flushes a new FAQ entry without committing.
 
@@ -52,7 +53,7 @@ class KnowledgeRepository:
         """
         entry = KnowledgeBaseEntry(
             business_id=business_id,
-            question=question.strip(),
+            question=question.strip() if question else None,
             answer=answer.strip(),
             tags=tags if tags is not None else [],
             language=language,
@@ -60,7 +61,7 @@ class KnowledgeRepository:
             source_file_id=None,
             chunk_index=None,
             embedding=embedding,
-            embedding_stale=False,
+            embedding_stale=embedding_stale,
         )
         db.add(entry)
         await db.flush()
