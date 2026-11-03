@@ -13,6 +13,14 @@ from app.schemas.business import (
     BusinessCreateRequest,
     BusinessResponse,
 )
+from app.schemas.knowledge import (
+    FAQCreate,
+    FAQUpdate,
+    FAQResponse,
+    KnowledgeSearchRequest,
+    KnowledgeSearchResultItem,
+    KnowledgeSearchResponse,
+)
 
 __all__ = [
     "RegisterRequest",
@@ -24,5 +32,11 @@ __all__ = [
     "BusinessCreate",
     "BusinessCreateRequest",
     "BusinessResponse",
+    "FAQCreate",
+    "FAQUpdate",
+    "FAQResponse",
+    "KnowledgeSearchRequest",
+    "KnowledgeSearchResultItem",
+    "KnowledgeSearchResponse",
 ]
 

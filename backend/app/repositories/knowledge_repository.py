@@ -65,6 +65,7 @@ class KnowledgeRepository:
         )
         db.add(entry)
         await db.flush()
+        await db.refresh(entry)
         return entry
 
     async def create_chunk(
@@ -104,6 +105,7 @@ class KnowledgeRepository:
         )
         db.add(entry)
         await db.flush()
+        await db.refresh(entry)
         return entry
 
     async def create_chunks_batch(
@@ -223,6 +225,7 @@ class KnowledgeRepository:
                 setattr(entry, field, value)
 
         await db.flush()
+        await db.refresh(entry)
         return entry
 
     async def delete_entry(
