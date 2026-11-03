@@ -7,6 +7,14 @@ from app.repositories.business_member_repository import (
     business_member_repository,
     BusinessMemberRepository,
 )
+from app.repositories.knowledge_file_repository import (
+    knowledge_file_repository,
+    KnowledgeFileRepository,
+)
+from app.repositories.knowledge_repository import (
+    knowledge_repository,
+    KnowledgeRepository,
+)
 
 __all__ = [
     "user_repository",
@@ -17,5 +25,9 @@ __all__ = [
     "BusinessRepository",
     "business_member_repository",
     "BusinessMemberRepository",
+    "knowledge_file_repository",
+    "KnowledgeFileRepository",
+    "knowledge_repository",
+    "KnowledgeRepository",
 ]
 
