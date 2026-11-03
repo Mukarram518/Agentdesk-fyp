@@ -37,6 +37,10 @@ logs/
 tmp/
 temp/
 
+# File Storage
+/storage/
+/backend/storage/
+
 # Test artifacts
 playwright-report/
 test-results/

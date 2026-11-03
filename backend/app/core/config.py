@@ -101,6 +101,9 @@ class Settings(BaseSettings):
     GOOGLE_REDIRECT_URI: Union[str, None] = "http://localhost:8000/api/v1/auth/google/callback"
     FRONTEND_URL: str = "http://localhost:3000"
 
+    # File Storage
+    STORAGE_LOCAL_DIR: str = "storage"
+
 
 @lru_cache()
 def get_settings() -> Settings:
