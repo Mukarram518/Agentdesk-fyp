@@ -11,6 +11,8 @@ from app.models import Base
 
 if TYPE_CHECKING:
     from app.models.business_member import BusinessMember
+    from app.models.knowledge_file import KnowledgeFile
+    from app.models.knowledge import KnowledgeBaseEntry
 
 
 class Business(Base):
@@ -59,6 +61,16 @@ class Business(Base):
     # Relationships
     members: Mapped[List["BusinessMember"]] = relationship(
         "BusinessMember",
+        back_populates="business",
+        cascade="all, delete-orphan",
+    )
+    knowledge_files: Mapped[List["KnowledgeFile"]] = relationship(
+        "KnowledgeFile",
+        back_populates="business",
+        cascade="all, delete-orphan",
+    )
+    knowledge_entries: Mapped[List["KnowledgeBaseEntry"]] = relationship(
+        "KnowledgeBaseEntry",
         back_populates="business",
         cascade="all, delete-orphan",
     )
