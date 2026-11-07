@@ -2656,25 +2656,68 @@ Avoid copying large setup blocks into every test.
 
 
 
-Each test should avoid interfering with another test.
+Each test must avoid interfering with another test, and under no circumstances may automated tests connect to or modify development (`agentdesk`) or production databases.
 
 
 
-Possible approaches:
+\### Dedicated Test Database Architecture
 
 
 
-\* transactions
-
-\* rollback fixtures
-
-\* isolated test databases
-
-\* controlled cleanup
+AgentDesk enforces a dedicated PostgreSQL test database: `agentdesk_test`.
 
 
 
-The chosen implementation must provide reliable isolation.
+\* Settings: `POSTGRES_TEST_DB=agentdesk_test` and `TEST_DATABASE_URL=postgresql+asyncpg://.../agentdesk_test`.
+
+\* Pytest Environment: `conftest.py` forces `ENVIRONMENT=testing` and ensures settings route async and sync database connections to `agentdesk_test`.
+
+\* Runtime Isolation Safety Guard: `enforce_test_database_isolation` verifies both the configured database URL and the server-side `SELECT current_database()` value. If the target database is `agentdesk`, `postgres`, `production`, `development`, or does not end with/contain `test`, the entire test session is aborted immediately before any database session can be created.
+
+
+
+\### Initializing the Test Database
+
+
+
+To create and initialize `agentdesk_test`:
+
+
+
+#### 1. Create database and vector extension (run via psql or admin connection):
+
+```sql
+CREATE DATABASE agentdesk_test;
+\c agentdesk_test
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+
+#### 2. Apply Alembic migrations to head against `agentdesk_test`:
+
+**Windows PowerShell:**
+
+```powershell
+cd backend
+$env:ENVIRONMENT = "testing"
+python -m alembic upgrade head
+```
+
+To reset the session environment variable when done:
+
+```powershell
+Remove-Item Env:ENVIRONMENT
+```
+
+**Linux / macOS Bash:**
+
+```bash
+cd backend
+ENVIRONMENT=testing alembic upgrade head
+```
+
+
+
+All test helpers, commits, fixtures, and repositories operate strictly within `agentdesk_test`.
 
 
 

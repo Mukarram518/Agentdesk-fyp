@@ -9,6 +9,7 @@ from app.api.v1.router import api_v1_router
 from app.core.config import get_settings
 from app.core.database import close_database
 from app.core.redis import close_redis
+from app.core.arq import close_arq_pool, create_arq_pool
 from app.core.logging import logger
 
 settings = get_settings()
@@ -18,8 +19,24 @@ settings = get_settings()
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Lifespan event handler for startup and shutdown procedures."""
     logger.info(f"Starting {settings.APP_NAME} backend in {settings.ENVIRONMENT} mode...")
+
+    # Initialize ARQ Redis connection pool for background job enqueueing
+    try:
+        app.state.arq_pool = await create_arq_pool()
+        logger.info("ARQ Redis connection pool initialized.")
+    except Exception as exc:
+        logger.warning(f"Could not initialize ARQ Redis pool on startup: {exc}. Background jobs disabled.")
+        app.state.arq_pool = None
+
     yield
+
     logger.info(f"Shutting down {settings.APP_NAME} backend...")
+    # Release ARQ pool
+    arq_pool = getattr(app.state, "arq_pool", None)
+    if arq_pool:
+        await close_arq_pool(arq_pool)
+        logger.info("ARQ Redis pool closed.")
+
     await close_database()
     await close_redis()
     logger.info("Resources released successfully.")

@@ -2,15 +2,17 @@
 
 import uuid
 from typing import Any, List, Optional, Tuple
-from sqlalchemy import select
+from sqlalchemy import select, delete, and_, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.knowledge import (
+    ACTIVE_EMBEDDING_MODEL,
     KnowledgeBaseEntry,
     KnowledgeSourceType,
     KnowledgeLanguage,
     EMBEDDING_VECTOR_DIMENSION,
 )
+from app.models.knowledge_file import KnowledgeFile, KnowledgeFileStatus
 
 # Immutable fields that must never be altered via update_entry to protect tenant integrity
 IMMUTABLE_FIELDS = frozenset({"id", "entry_id", "business_id", "source_file_id", "source_type", "chunk_index"})
@@ -25,6 +27,7 @@ ALLOWED_UPDATE_FIELDS = frozenset({
     "section_title",
     "embedding",
     "embedding_stale",
+    "embedding_model",
 })
 
 # Content fields that invalidate vector embeddings when modified
@@ -44,6 +47,7 @@ class KnowledgeRepository:
         language: str = KnowledgeLanguage.EN.value,
         embedding: Optional[List[float]] = None,
         embedding_stale: bool = False,
+        embedding_model: Optional[str] = None,
     ) -> KnowledgeBaseEntry:
         """Creates and flushes a new FAQ entry without committing.
 
@@ -51,6 +55,7 @@ class KnowledgeRepository:
         - source_type is set to 'FAQ'.
         - source_file_id and chunk_index are strictly None (enforced by DB check constraint).
         """
+        actual_model = embedding_model or (ACTIVE_EMBEDDING_MODEL if embedding is not None else None)
         entry = KnowledgeBaseEntry(
             business_id=business_id,
             question=question.strip() if question else None,
@@ -62,6 +67,7 @@ class KnowledgeRepository:
             chunk_index=None,
             embedding=embedding,
             embedding_stale=embedding_stale,
+            embedding_model=actual_model,
         )
         db.add(entry)
         await db.flush()
@@ -81,6 +87,7 @@ class KnowledgeRepository:
         tags: Optional[List[Any]] = None,
         language: str = KnowledgeLanguage.EN.value,
         embedding: Optional[List[float]] = None,
+        embedding_model: Optional[str] = None,
     ) -> KnowledgeBaseEntry:
         """Creates and flushes a new document chunk entry without committing.
 
@@ -89,6 +96,7 @@ class KnowledgeRepository:
         - source_file_id is non-null and must match the owning business.
         - chunk_index is non-null and >= 0.
         """
+        actual_model = embedding_model or (ACTIVE_EMBEDDING_MODEL if embedding is not None else None)
         entry = KnowledgeBaseEntry(
             business_id=business_id,
             source_file_id=source_file_id,
@@ -102,6 +110,7 @@ class KnowledgeRepository:
             source_type=KnowledgeSourceType.DOCUMENT_CHUNK.value,
             embedding=embedding,
             embedding_stale=False,
+            embedding_model=actual_model,
         )
         db.add(entry)
         await db.flush()
@@ -117,6 +126,10 @@ class KnowledgeRepository:
         """Batch-persists chunks for a document while preserving input ordering."""
         entries: List[KnowledgeBaseEntry] = []
         for item in chunks_data:
+            item_embedding = item.get("embedding")
+            actual_model = item.get("embedding_model") or (
+                ACTIVE_EMBEDDING_MODEL if item_embedding is not None else None
+            )
             entry = KnowledgeBaseEntry(
                 business_id=business_id,
                 source_file_id=item["source_file_id"],
@@ -128,8 +141,9 @@ class KnowledgeRepository:
                 tags=item.get("tags") if item.get("tags") is not None else [],
                 language=item.get("language", KnowledgeLanguage.EN.value),
                 source_type=KnowledgeSourceType.DOCUMENT_CHUNK.value,
-                embedding=item.get("embedding"),
+                embedding=item_embedding,
                 embedding_stale=item.get("embedding_stale", False),
+                embedding_model=actual_model,
             )
             entries.append(entry)
 
@@ -180,6 +194,87 @@ class KnowledgeRepository:
             stmt = stmt.limit(limit)
         if offset > 0:
             stmt = stmt.offset(offset)
+
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def count_faqs_needing_reembed(
+        self,
+        db: AsyncSession,
+        business_id: Optional[uuid.UUID] = None,
+        target_model: str = ACTIVE_EMBEDDING_MODEL,
+    ) -> int:
+        """Counts FAQ entries that do not have an active, non-stale embedding."""
+        conditions = [
+            KnowledgeBaseEntry.source_type == KnowledgeSourceType.FAQ.value,
+            func.trim(func.coalesce(KnowledgeBaseEntry.answer, "")) != "",
+            or_(
+                KnowledgeBaseEntry.embedding_model != target_model,
+                KnowledgeBaseEntry.embedding_model.is_(None),
+                KnowledgeBaseEntry.embedding_stale == True,  # noqa: E712
+                KnowledgeBaseEntry.embedding.is_(None),
+            ),
+        ]
+        if business_id is not None:
+            conditions.append(KnowledgeBaseEntry.business_id == business_id)
+
+        stmt = select(func.count(KnowledgeBaseEntry.id)).where(*conditions)
+        return (await db.scalar(stmt)) or 0
+
+    async def count_faqs_with_blank_answer(
+        self,
+        db: AsyncSession,
+        business_id: Optional[uuid.UUID] = None,
+    ) -> int:
+        """Counts FAQ entries that have a blank or whitespace-only answer."""
+        conditions = [
+            KnowledgeBaseEntry.source_type == KnowledgeSourceType.FAQ.value,
+            func.trim(func.coalesce(KnowledgeBaseEntry.answer, "")) == "",
+        ]
+        if business_id is not None:
+            conditions.append(KnowledgeBaseEntry.business_id == business_id)
+
+        stmt = select(func.count(KnowledgeBaseEntry.id)).where(*conditions)
+        return (await db.scalar(stmt)) or 0
+
+    async def list_faqs_needing_reembed(
+        self,
+        db: AsyncSession,
+        business_id: Optional[uuid.UUID] = None,
+        limit: int = 50,
+        target_model: str = ACTIVE_EMBEDDING_MODEL,
+        for_update: bool = True,
+    ) -> List[KnowledgeBaseEntry]:
+        """Lists FAQ entries requiring re-embedding with row-level skip locking.
+
+        Guarantees:
+        - Bounded batch size of at most 50.
+        - Excludes entries with blank or whitespace-only answers.
+        - Supports tenant scoping (if business_id is provided) or platform-wide (if None).
+        - with_for_update(skip_locked=True) prevents race conditions and duplicate worker execution.
+        """
+        bounded_limit = min(max(1, limit), 50)
+        conditions = [
+            KnowledgeBaseEntry.source_type == KnowledgeSourceType.FAQ.value,
+            func.trim(func.coalesce(KnowledgeBaseEntry.answer, "")) != "",
+            or_(
+                KnowledgeBaseEntry.embedding_model != target_model,
+                KnowledgeBaseEntry.embedding_model.is_(None),
+                KnowledgeBaseEntry.embedding_stale == True,  # noqa: E712
+                KnowledgeBaseEntry.embedding.is_(None),
+            ),
+        ]
+        if business_id is not None:
+            conditions.append(KnowledgeBaseEntry.business_id == business_id)
+
+        stmt = (
+            select(KnowledgeBaseEntry)
+            .where(*conditions)
+            .order_by(KnowledgeBaseEntry.created_at.asc())
+            .limit(bounded_limit)
+        )
+        if for_update:
+            stmt = stmt.with_for_update(skip_locked=True)
 
         result = await db.execute(stmt)
         return list(result.scalars().all())
@@ -246,6 +341,24 @@ class KnowledgeRepository:
         await db.flush()
         return True
 
+    async def delete_by_source_file(
+        self,
+        db: AsyncSession,
+        business_id: uuid.UUID,
+        source_file_id: uuid.UUID,
+    ) -> int:
+        """Deletes all chunks belonging to a specific source file strictly within tenant scope.
+
+        Returns the number of deleted chunk entries.
+        """
+        stmt = delete(KnowledgeBaseEntry).where(
+            KnowledgeBaseEntry.business_id == business_id,
+            KnowledgeBaseEntry.source_file_id == source_file_id,
+        )
+        result = await db.execute(stmt)
+        await db.flush()
+        return result.rowcount
+
     async def search_similar(
         self,
         db: AsyncSession,
@@ -254,6 +367,7 @@ class KnowledgeRepository:
         top_k: int = 5,
         source_type: Optional[str] = None,
         score_threshold: Optional[float] = None,
+        embedding_model: Optional[str] = ACTIVE_EMBEDDING_MODEL,
     ) -> List[Tuple[KnowledgeBaseEntry, float]]:
         """Tenant-scoped vector similarity search using pgvector cosine distance (<=>).
 
@@ -263,11 +377,14 @@ class KnowledgeRepository:
         - source_type: Optional filter ('FAQ' or 'document_chunk').
         - score_threshold: Maximum allowable cosine distance (0.0 = identical, lower is closer).
           When provided, only entries with cosine distance <= score_threshold are returned.
+        - embedding_model: Model identifier filter (defaults to ACTIVE_EMBEDDING_MODEL).
+          Ensures search only retrieves vectors generated by the active model and quarantines legacy vectors.
 
         Guarantees:
         - Strictly scoped by business_id (zero cross-tenant leakage).
         - Excludes entries where embedding is NULL.
         - Excludes entries where embedding_stale is True.
+        - Excludes legacy or incompatible embedding models (quarantine).
         - Returns results ordered by cosine distance ascending (closest first).
         - Returns pairs of (KnowledgeBaseEntry, distance_float).
         """
@@ -279,14 +396,27 @@ class KnowledgeRepository:
         if top_k < 1 or top_k > 100:
             raise ValueError(f"top_k must be between 1 and 100 (received {top_k}).")
 
+        target_model = embedding_model or ACTIVE_EMBEDDING_MODEL
         distance_expr = KnowledgeBaseEntry.embedding.cosine_distance(query_vector)
 
         stmt = (
             select(KnowledgeBaseEntry, distance_expr.label("distance"))
+            .outerjoin(
+                KnowledgeFile,
+                and_(
+                    KnowledgeBaseEntry.source_file_id == KnowledgeFile.id,
+                    KnowledgeBaseEntry.business_id == KnowledgeFile.business_id,
+                ),
+            )
             .where(
                 KnowledgeBaseEntry.business_id == business_id,
                 KnowledgeBaseEntry.embedding.is_not(None),
                 KnowledgeBaseEntry.embedding_stale == False,  # noqa: E712
+                KnowledgeBaseEntry.embedding_model == target_model,
+                or_(
+                    KnowledgeBaseEntry.source_file_id.is_(None),
+                    KnowledgeFile.processing_status == KnowledgeFileStatus.READY.value,
+                ),
             )
         )
 

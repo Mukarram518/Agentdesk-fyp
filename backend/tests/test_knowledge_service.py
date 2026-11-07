@@ -31,6 +31,7 @@ from app.models.knowledge import (
     EMBEDDING_VECTOR_DIMENSION,
 )
 from app.models.knowledge_file import KnowledgeFile, KnowledgeFileStatus
+from app.providers.embeddings.base import PREFIX_PASSAGE, PREFIX_QUERY
 from app.providers.embeddings.mock import MockEmbeddingProvider
 from app.services.knowledge_service import KnowledgeService, knowledge_service
 
@@ -760,4 +761,125 @@ async def test_no_service_or_repository_commits_transactions():
         # Restore original commit and cleanly finish
         db.commit = original_commit  # type: ignore
         await db.commit()
+
+
+# =====================================================================
+# 15. E5 Prefix Tests (Phase 5.4F.6)
+# =====================================================================
+
+@pytest.mark.asyncio
+async def test_create_faq_uses_passage_prefix():
+    """Verifies that create_faq passes prefix=PREFIX_PASSAGE and is_query=False to embed_text."""
+    mock_provider = MockEmbeddingProvider()
+    mock_provider.embed_text = AsyncMock(wraps=mock_provider.embed_text)
+    service = KnowledgeService(embedding_provider=mock_provider)
+
+    async with async_session_factory() as db:
+        biz = await create_test_business(db, name="Prefix FAQ Create Biz")
+
+        faq = await service.create_faq(
+            db=db,
+            business_id=biz.id,
+            question="What is E5?",
+            answer="E5 is an embedding model requiring task prefixes.",
+        )
+        assert faq.id is not None
+
+        mock_provider.embed_text.assert_called_once()
+        args, kwargs = mock_provider.embed_text.call_args
+        prefix_val = kwargs.get("prefix", args[1] if len(args) > 1 else None)
+        is_query_val = kwargs.get("is_query", args[2] if len(args) > 2 else False)
+        assert prefix_val == PREFIX_PASSAGE
+        assert is_query_val is False
+
+
+@pytest.mark.asyncio
+async def test_update_faq_uses_passage_prefix():
+    """Verifies that update_faq passes prefix=PREFIX_PASSAGE and is_query=False to embed_text."""
+    mock_provider = MockEmbeddingProvider()
+    service = KnowledgeService(embedding_provider=mock_provider)
+
+    async with async_session_factory() as db:
+        biz = await create_test_business(db, name="Prefix FAQ Update Biz")
+
+        faq = await service.create_faq(
+            db=db,
+            business_id=biz.id,
+            question="Initial question?",
+            answer="Initial answer text.",
+        )
+
+        mock_provider.embed_text = AsyncMock(wraps=mock_provider.embed_text)
+
+        updated = await service.update_faq(
+            db=db,
+            business_id=biz.id,
+            entry_id=faq.id,
+            answer="Updated answer text with new passage.",
+        )
+        assert updated is not None
+
+        mock_provider.embed_text.assert_called_once()
+        args, kwargs = mock_provider.embed_text.call_args
+        prefix_val = kwargs.get("prefix", args[1] if len(args) > 1 else None)
+        is_query_val = kwargs.get("is_query", args[2] if len(args) > 2 else False)
+        assert prefix_val == PREFIX_PASSAGE
+        assert is_query_val is False
+
+
+@pytest.mark.asyncio
+async def test_reembed_stale_entries_uses_passage_prefix():
+    """Verifies that reembed_stale_entries passes prefix=PREFIX_PASSAGE and is_query=False to embed_text."""
+    mock_provider = MockEmbeddingProvider()
+    service = KnowledgeService(embedding_provider=mock_provider)
+
+    async with async_session_factory() as db:
+        biz = await create_test_business(db, name="Prefix Reembed Biz")
+
+        faq = await service.create_faq(
+            db=db,
+            business_id=biz.id,
+            question="Stale FAQ?",
+            answer="Stale answer text waiting for re-embedding.",
+        )
+
+        # Mark entry as stale
+        faq.embedding_stale = True
+        await db.flush()
+
+        mock_provider.embed_text = AsyncMock(wraps=mock_provider.embed_text)
+
+        reembedded_count = await service.reembed_stale_entries(db=db, business_id=biz.id)
+        assert reembedded_count == 1
+
+        mock_provider.embed_text.assert_called_once()
+        args, kwargs = mock_provider.embed_text.call_args
+        prefix_val = kwargs.get("prefix", args[1] if len(args) > 1 else None)
+        is_query_val = kwargs.get("is_query", args[2] if len(args) > 2 else False)
+        assert prefix_val == PREFIX_PASSAGE
+        assert is_query_val is False
+
+
+@pytest.mark.asyncio
+async def test_search_knowledge_uses_query_prefix():
+    """Verifies that search_knowledge passes prefix=PREFIX_QUERY and is_query=True to embed_text."""
+    mock_provider = MockEmbeddingProvider()
+    mock_provider.embed_text = AsyncMock(wraps=mock_provider.embed_text)
+    service = KnowledgeService(embedding_provider=mock_provider)
+
+    async with async_session_factory() as db:
+        biz = await create_test_business(db, name="Prefix Search Biz")
+
+        results = await service.search_knowledge(
+            db=db,
+            business_id=biz.id,
+            query="find dental services",
+        )
+
+        mock_provider.embed_text.assert_called_once()
+        args, kwargs = mock_provider.embed_text.call_args
+        prefix_val = kwargs.get("prefix", args[1] if len(args) > 1 else None)
+        is_query_val = kwargs.get("is_query", args[2] if len(args) > 2 else False)
+        assert prefix_val == PREFIX_QUERY
+        assert is_query_val is True
 

@@ -45,11 +45,32 @@ class Settings(BaseSettings):
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5434
     POSTGRES_DB: str = "agentdesk"
+    POSTGRES_TEST_DB: str = "agentdesk_test"
     DATABASE_URL: str = ""
+    TEST_DATABASE_URL: str = ""
 
     @property
     def async_database_url(self) -> str:
         """Returns the async SQLAlchemy database URL."""
+        if self.ENVIRONMENT == "testing":
+            if self.TEST_DATABASE_URL:
+                url = self.TEST_DATABASE_URL
+                if url.startswith("postgresql://"):
+                    return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+                return url
+            if self.DATABASE_URL:
+                from urllib.parse import urlparse
+                parsed_path = urlparse(self.DATABASE_URL).path.lstrip("/").lower()
+                if "test" in parsed_path and parsed_path not in ("agentdesk", "postgres", "production", "development"):
+                    url = self.DATABASE_URL
+                    if url.startswith("postgresql://"):
+                        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+                    return url
+            return (
+                f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@"
+                f"{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_TEST_DB}"
+            )
+
         if self.DATABASE_URL:
             # Normalize to asyncpg driver if standard postgresql:// prefix was provided
             if self.DATABASE_URL.startswith("postgresql://"):
@@ -63,6 +84,25 @@ class Settings(BaseSettings):
     @property
     def sync_database_url(self) -> str:
         """Returns the synchronous SQLAlchemy database URL (psycopg2)."""
+        if self.ENVIRONMENT == "testing":
+            if self.TEST_DATABASE_URL:
+                url = self.TEST_DATABASE_URL
+                if url.startswith("postgresql+asyncpg://"):
+                    return url.replace("postgresql+asyncpg://", "postgresql://", 1)
+                return url
+            if self.DATABASE_URL:
+                from urllib.parse import urlparse
+                parsed_path = urlparse(self.DATABASE_URL).path.lstrip("/").lower()
+                if "test" in parsed_path and parsed_path not in ("agentdesk", "postgres", "production", "development"):
+                    url = self.DATABASE_URL
+                    if url.startswith("postgresql+asyncpg://"):
+                        return url.replace("postgresql+asyncpg://", "postgresql://", 1)
+                    return url
+            return (
+                f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@"
+                f"{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_TEST_DB}"
+            )
+
         if self.DATABASE_URL:
             if self.DATABASE_URL.startswith("postgresql+asyncpg://"):
                 return self.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://", 1)
@@ -103,6 +143,13 @@ class Settings(BaseSettings):
 
     # File Storage
     STORAGE_LOCAL_DIR: str = "storage"
+
+    # LLM Provider Configuration
+    LLM_PROVIDER: str = "mock"
+    GROQ_API_KEY: Union[str, None] = None
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    GROQ_TIMEOUT_SECONDS: float = 30.0
+    GROQ_MAX_RETRIES: int = 2
 
 
 @lru_cache()

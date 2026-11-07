@@ -30,6 +30,10 @@ if TYPE_CHECKING:
 # Confirmed embedding vector dimension for sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
 EMBEDDING_VECTOR_DIMENSION = 384
 
+# Canonical embedding model identities
+ACTIVE_EMBEDDING_MODEL = "intfloat/multilingual-e5-small"
+LEGACY_UNKNOWN_EMBEDDING_MODEL = "legacy-unknown"
+
 
 class KnowledgeSourceType(str, enum.Enum):
     """Approved knowledge entry source types."""
@@ -119,6 +123,11 @@ class KnowledgeBaseEntry(Base):
         server_default=func.false(),
         nullable=False,
     )
+    embedding_model: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+    )
     embedding = mapped_column(
         Vector(EMBEDDING_VECTOR_DIMENSION),
         nullable=True,
@@ -162,6 +171,7 @@ class KnowledgeBaseEntry(Base):
         Index("ix_knowledge_base_entries_business_source", "business_id", "source_type"),
         Index("ix_knowledge_base_entries_business_created", "business_id", "created_at"),
         Index("ix_knowledge_base_entries_business_stale", "business_id", "embedding_stale"),
+        Index("ix_kbe_business_model_stale", "business_id", "embedding_model", "embedding_stale"),
     )
 
     def __repr__(self) -> str:

@@ -27,6 +27,12 @@ if config.config_file_name is not None:
 
 # Dynamically set sqlalchemy.url from application settings (no hardcoded secrets)
 settings = get_settings()
+
+# Validate test database isolation when testing configuration is active
+if settings.ENVIRONMENT == "testing" or os.getenv("ENVIRONMENT") == "testing":
+    from app.core.database import enforce_test_database_isolation
+    enforce_test_database_isolation(settings.async_database_url)
+
 config.set_main_option("sqlalchemy.url", settings.async_database_url)
 
 # Add Base.metadata for autogenerate support

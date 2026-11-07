@@ -80,6 +80,15 @@ class KnowledgeFile(Base):
         server_default=text(f"'{KnowledgeFileStatus.PENDING.value}'"),
         nullable=False,
     )
+    processing_token: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        nullable=True,
+        index=True,
+    )
+    processing_started_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     error_message: Mapped[Optional[str]] = mapped_column(
         Text,
         nullable=True,

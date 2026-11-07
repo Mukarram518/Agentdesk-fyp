@@ -2,6 +2,7 @@
 
 import os
 from typing import AsyncGenerator, Dict, Any
+from urllib.parse import urlparse
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -14,9 +15,43 @@ from app.core.logging import logger
 
 settings = get_settings()
 
+FORBIDDEN_TEST_DATABASES = frozenset({
+    "agentdesk",
+    "postgres",
+    "production",
+    "agentdesk_dev",
+    "agentdesk_prod",
+    "development",
+})
+
+
+def enforce_test_database_isolation(target: str) -> str:
+    """
+    Validates that a database URL or database name targets an isolated test database.
+    Raises RuntimeError if it points to a production or development database.
+    """
+    if "://" in target:
+        parsed = urlparse(target)
+        db_name = parsed.path.lstrip("/").lower()
+    else:
+        db_name = target.strip().lower()
+
+    if db_name in FORBIDDEN_TEST_DATABASES or ("test" not in db_name):
+        raise RuntimeError(
+            f"TEST DATABASE ISOLATION ENFORCEMENT ERROR: Tests are strictly forbidden from connecting "
+            f"to database '{db_name}'. "
+            f"Expected dedicated test database (e.g. 'agentdesk_test'). "
+            f"Refusing to connect to protect development/production data."
+        )
+    return db_name
+
+
 # Use NullPool during testing to avoid cross-event-loop connection reuse issues with asyncpg
 is_testing = os.getenv("ENVIRONMENT") == "testing" or settings.ENVIRONMENT == "testing"
 pool_class = NullPool if is_testing else AsyncAdaptedQueuePool
+
+if is_testing:
+    enforce_test_database_isolation(settings.async_database_url)
 
 engine = create_async_engine(
     settings.async_database_url,

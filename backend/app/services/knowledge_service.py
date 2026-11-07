@@ -1,19 +1,26 @@
 """Knowledge service coordinating FAQ management, vector embeddings, and semantic search."""
 
 import asyncio
+from dataclasses import dataclass
 import logging
+import math
 import uuid
 from typing import Any, List, Optional, Tuple
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import logger
 from app.models.knowledge import (
+    ACTIVE_EMBEDDING_MODEL,
+    EMBEDDING_VECTOR_DIMENSION,
     KnowledgeBaseEntry,
     KnowledgeSourceType,
     KnowledgeLanguage,
 )
 from app.providers.embeddings import (
     EmbeddingProvider,
+    PREFIX_PASSAGE,
+    PREFIX_QUERY,
     get_embedding_provider,
 )
 from app.repositories.knowledge_repository import (
@@ -22,6 +29,18 @@ from app.repositories.knowledge_repository import (
 )
 
 _UNSET = object()
+
+
+@dataclass(frozen=True)
+class ReembedBatchResult:
+    """Outcome summary for an FAQ re-embedding batch."""
+
+    scanned: int
+    reembedded: int
+    failed: int
+    remaining: int
+    dry_run: bool
+    entry_ids: List[uuid.UUID]
 
 
 class KnowledgeService:
@@ -88,9 +107,15 @@ class KnowledgeService:
 
         embedding: Optional[List[float]] = None
         embedding_stale: bool = False
+        embedding_model: Optional[str] = None
 
         try:
-            embedding = await self.embedding_provider.embed_text(cleaned_answer)
+            embedding = await self.embedding_provider.embed_text(
+                cleaned_answer,
+                prefix=PREFIX_PASSAGE,
+                is_query=False,
+            )
+            embedding_model = getattr(self.embedding_provider, "model_name", ACTIVE_EMBEDDING_MODEL)
         except (asyncio.CancelledError, KeyboardInterrupt, SystemExit):
             raise
         except Exception as exc:
@@ -100,6 +125,7 @@ class KnowledgeService:
             )
             embedding = None
             embedding_stale = True
+            embedding_model = None
 
         return await self.knowledge_repo.create_faq(
             db=db,
@@ -110,6 +136,7 @@ class KnowledgeService:
             language=language,
             embedding=embedding,
             embedding_stale=embedding_stale,
+            embedding_model=embedding_model,
         )
 
     async def get_faq(
@@ -223,9 +250,16 @@ class KnowledgeService:
         if content_changed:
             target_answer = update_data.get("answer", entry.answer)
             try:
-                new_embedding = await self.embedding_provider.embed_text(target_answer)
+                new_embedding = await self.embedding_provider.embed_text(
+                    target_answer,
+                    prefix=PREFIX_PASSAGE,
+                    is_query=False,
+                )
                 update_data["embedding"] = new_embedding
                 update_data["embedding_stale"] = False
+                update_data["embedding_model"] = getattr(
+                    self.embedding_provider, "model_name", ACTIVE_EMBEDDING_MODEL
+                )
             except (asyncio.CancelledError, KeyboardInterrupt, SystemExit):
                 raise
             except Exception as exc:
@@ -234,6 +268,7 @@ class KnowledgeService:
                     "Marking entry stale."
                 )
                 update_data["embedding_stale"] = True
+                update_data["embedding_model"] = None
 
         return await self.knowledge_repo.update_entry(
             db=db,
@@ -292,8 +327,13 @@ class KnowledgeService:
             raise ValueError(f"top_k must be between 1 and 100 (received {top_k}).")
 
         cleaned_query = query.strip()
-        query_vector = await self.embedding_provider.embed_text(cleaned_query)
+        query_vector = await self.embedding_provider.embed_text(
+            cleaned_query,
+            prefix=PREFIX_QUERY,
+            is_query=True,
+        )
 
+        active_model = getattr(self.embedding_provider, "model_name", ACTIVE_EMBEDDING_MODEL)
         return await self.knowledge_repo.search_similar(
             db=db,
             business_id=business_id,
@@ -301,6 +341,7 @@ class KnowledgeService:
             top_k=top_k,
             source_type=source_type,
             score_threshold=score_threshold,
+            embedding_model=active_model,
         )
 
     async def reembed_stale_entries(
@@ -314,7 +355,7 @@ class KnowledgeService:
         Guarantees:
         - Only processes FAQ entries (source_type='FAQ'). Never touches document chunks.
         - Strictly tenant-scoped to business_id.
-        - On success, updates embedding and sets embedding_stale=False.
+        - On success, updates embedding and sets embedding_stale=False with active embedding_model.
         - On failure for an individual entry, logs warning and proceeds with remaining entries.
         - Returns count of successfully re-embedded entries.
         """
@@ -331,15 +372,21 @@ class KnowledgeService:
         )
 
         success_count = 0
+        active_model = getattr(self.embedding_provider, "model_name", ACTIVE_EMBEDDING_MODEL)
         for entry in stale_faqs:
             try:
-                new_vector = await self.embedding_provider.embed_text(entry.answer)
+                new_vector = await self.embedding_provider.embed_text(
+                    entry.answer,
+                    prefix=PREFIX_PASSAGE,
+                    is_query=False,
+                )
                 await self.knowledge_repo.update_entry(
                     db=db,
                     business_id=business_id,
                     entry_id=entry.id,
                     embedding=new_vector,
                     embedding_stale=False,
+                    embedding_model=active_model,
                 )
                 success_count += 1
             except (asyncio.CancelledError, KeyboardInterrupt, SystemExit):
@@ -350,6 +397,151 @@ class KnowledgeService:
                 )
 
         return success_count
+
+    async def reembed_faq_batch(
+        self,
+        db: AsyncSession,
+        business_id: Optional[uuid.UUID] = None,
+        batch_size: int = 50,
+        dry_run: bool = False,
+    ) -> ReembedBatchResult:
+        """Processes a bounded batch of FAQ entries requiring E5 embeddings.
+
+        Guarantees:
+        - Maximum batch size of 50.
+        - Supports dry-run inspection without database writes.
+        - Uses FOR UPDATE SKIP LOCKED to prevent duplicate processing by concurrent workers.
+        - Encodes answers using active embedding provider with 'passage: ' prefix.
+        - Validates 384 dimensions, finite numeric values, and unit normalization.
+        - Updates only embedding, embedding_model, embedding_stale, and updated_at.
+        - Preserves all FAQ text content, tags, language, and tenant ownership.
+        - Rolls back failed batches and never labels failed vectors as E5.
+        - Explicitly flags entries with invalid/empty answers as stale without halting batch.
+        """
+        bounded_batch_size = min(max(1, batch_size), 50)
+        active_model = getattr(self.embedding_provider, "model_name", ACTIVE_EMBEDDING_MODEL)
+
+        # 1. Dry Run Mode
+        if dry_run:
+            entries = await self.knowledge_repo.list_faqs_needing_reembed(
+                db=db,
+                business_id=business_id,
+                limit=bounded_batch_size,
+                target_model=active_model,
+                for_update=False,
+            )
+            total_remaining = await self.knowledge_repo.count_faqs_needing_reembed(
+                db=db,
+                business_id=business_id,
+                target_model=active_model,
+            )
+            return ReembedBatchResult(
+                scanned=len(entries),
+                reembedded=0,
+                failed=0,
+                remaining=total_remaining,
+                dry_run=True,
+                entry_ids=[e.id for e in entries],
+            )
+
+        # 2. Live Execution Mode with Skip Locking
+        entries = await self.knowledge_repo.list_faqs_needing_reembed(
+            db=db,
+            business_id=business_id,
+            limit=bounded_batch_size,
+            target_model=active_model,
+            for_update=True,
+        )
+
+        if not entries:
+            total_remaining = await self.knowledge_repo.count_faqs_needing_reembed(
+                db=db,
+                business_id=business_id,
+                target_model=active_model,
+            )
+            return ReembedBatchResult(
+                scanned=0,
+                reembedded=0,
+                failed=0,
+                remaining=total_remaining,
+                dry_run=False,
+                entry_ids=[],
+            )
+
+        # Separate entries with valid answer strings vs empty/invalid answers
+        valid_entries: List[KnowledgeBaseEntry] = []
+        invalid_entries: List[KnowledgeBaseEntry] = []
+
+        for entry in entries:
+            if entry.answer and entry.answer.strip():
+                valid_entries.append(entry)
+            else:
+                invalid_entries.append(entry)
+
+        # Handle invalid entries: isolate as stale without labeling as E5
+        for inv in invalid_entries:
+            inv.embedding = None
+            inv.embedding_stale = True
+            inv.embedding_model = None
+            inv.updated_at = func.now()
+
+        # Generate embeddings for valid entries
+        reembedded_ids: List[uuid.UUID] = []
+        if valid_entries:
+            answers = [e.answer.strip() for e in valid_entries]
+            try:
+                embeddings = await self.embedding_provider.embed_batch(
+                    answers,
+                    prefix=PREFIX_PASSAGE,
+                    is_query=False,
+                )
+            except (asyncio.CancelledError, KeyboardInterrupt, SystemExit):
+                raise
+            except Exception as exc:
+                logger.error(f"Batch embedding generation failed for {len(valid_entries)} FAQs: {exc}")
+                raise
+
+            if len(embeddings) != len(valid_entries):
+                raise ValueError(
+                    f"Generated embeddings count ({len(embeddings)}) mismatch with valid FAQs ({len(valid_entries)})."
+                )
+
+            # Strict validation
+            for idx, vec in enumerate(embeddings):
+                if not isinstance(vec, (list, tuple)) or len(vec) != EMBEDDING_VECTOR_DIMENSION:
+                    raise ValueError(
+                        f"Vector at index {idx} has invalid dimension {len(vec) if isinstance(vec, (list, tuple)) else 'non-sequence'}; "
+                        f"expected {EMBEDDING_VECTOR_DIMENSION}."
+                    )
+                if not all(math.isfinite(x) for x in vec):
+                    raise ValueError(f"Vector at index {idx} contains non-finite values (NaN or Inf).")
+                norm = math.sqrt(sum(x * x for x in vec))
+                if not (0.95 <= norm <= 1.05):
+                    raise ValueError(f"Vector at index {idx} is not unit-normalized (norm={norm:.4f}).")
+
+            for entry, vec in zip(valid_entries, embeddings):
+                entry.embedding = list(vec)
+                entry.embedding_model = active_model
+                entry.embedding_stale = False
+                entry.updated_at = func.now()
+                reembedded_ids.append(entry.id)
+
+        await db.flush()
+
+        total_remaining = await self.knowledge_repo.count_faqs_needing_reembed(
+            db=db,
+            business_id=business_id,
+            target_model=active_model,
+        )
+
+        return ReembedBatchResult(
+            scanned=len(entries),
+            reembedded=len(reembedded_ids),
+            failed=len(invalid_entries),
+            remaining=total_remaining,
+            dry_run=False,
+            entry_ids=reembedded_ids,
+        )
 
 
 knowledge_service = KnowledgeService()

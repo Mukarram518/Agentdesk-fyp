@@ -1,6 +1,7 @@
 """KnowledgeFile database repository for document upload metadata and lifecycle."""
 
 import uuid
+from datetime import datetime
 from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +22,8 @@ class KnowledgeFileRepository:
         size_bytes: int,
         processing_status: str = KnowledgeFileStatus.PENDING.value,
         error_message: Optional[str] = None,
+        processing_token: Optional[str] = None,
+        processing_started_at: Optional[datetime] = None,
     ) -> KnowledgeFile:
         """Creates and flushes a new knowledge file record without committing."""
         kfile = KnowledgeFile(
@@ -31,6 +34,8 @@ class KnowledgeFileRepository:
             size_bytes=size_bytes,
             processing_status=processing_status,
             error_message=error_message,
+            processing_token=processing_token,
+            processing_started_at=processing_started_at,
         )
         db.add(kfile)
         await db.flush()
@@ -81,8 +86,10 @@ class KnowledgeFileRepository:
         file_id: uuid.UUID,
         status: str,
         error_message: Optional[str] = None,
+        processing_token: Optional[str] = None,
+        processing_started_at: Optional[datetime] = None,
     ) -> Optional[KnowledgeFile]:
-        """Updates file processing status and error message within tenant scope.
+        """Updates file processing status, error message, and claim token within tenant scope.
 
         Returns None if the file does not belong to the supplied business.
         """
@@ -92,6 +99,10 @@ class KnowledgeFileRepository:
 
         kfile.processing_status = status
         kfile.error_message = error_message
+        if processing_token is not None or status == KnowledgeFileStatus.READY.value:
+            kfile.processing_token = processing_token
+        if processing_started_at is not None or status == KnowledgeFileStatus.READY.value:
+            kfile.processing_started_at = processing_started_at
         await db.flush()
         return kfile
 
