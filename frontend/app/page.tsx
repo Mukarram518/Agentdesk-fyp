@@ -18,6 +18,7 @@ import {
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useBusiness } from "@/lib/business/BusinessContext";
 import { BusinessOnboardingModal } from "@/components/business/BusinessOnboardingModal";
+import { ChatPreviewDrawer } from "@/components/chat";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -29,6 +30,7 @@ export default function DashboardPage() {
     refreshBusinesses,
   } = useBusiness();
   const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState(false);
+  const [isChatDrawerOpen, setIsChatDrawerOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | "conversations" | "leads" | "appointments">("all");
 
   useEffect(() => {
@@ -72,6 +74,17 @@ export default function DashboardPage() {
             <Badge variant="cherry" className="text-xs py-1 px-3">
               {currentBusiness ? currentBusiness.name : "Workspace Initialized"}
             </Badge>
+            {currentBusiness && !isLoadingBusiness && !businessError && (
+              <Button
+                variant="primary"
+                size="sm"
+                className="text-xs"
+                onClick={() => setIsChatDrawerOpen(true)}
+              >
+                <ConversationsIcon className="w-3.5 h-3.5 mr-1.5" />
+                Preview Chat
+              </Button>
+            )}
             <Button variant="secondary" size="sm" className="text-xs">
               Workspace Settings
             </Button>
@@ -318,7 +331,8 @@ export default function DashboardPage() {
                   icon={<ConversationsIcon className="w-6 h-6" />}
                   title="No conversations yet"
                   description="Incoming customer messages across your Web Chat and WhatsApp channels will appear here in real time."
-                  actionText="Preview chat interface"
+                  actionText={currentBusiness && !isLoadingBusiness && !businessError ? "Preview chat interface" : undefined}
+                  onAction={currentBusiness && !isLoadingBusiness && !businessError ? () => setIsChatDrawerOpen(true) : undefined}
                 />
               </div>
             </Card>
@@ -427,6 +441,13 @@ export default function DashboardPage() {
       <BusinessOnboardingModal
         isOpen={isOnboardingModalOpen}
         onClose={() => setIsOnboardingModalOpen(false)}
+      />
+
+      <ChatPreviewDrawer
+        isOpen={isChatDrawerOpen && Boolean(currentBusiness)}
+        onClose={() => setIsChatDrawerOpen(false)}
+        businessId={currentBusiness?.id}
+        title={currentBusiness ? `${currentBusiness.name} Assistant` : undefined}
       />
     </AppShell>
   );

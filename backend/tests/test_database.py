@@ -116,6 +116,8 @@ def test_alembic_migration_configuration():
         "0005_knowledge_integrity",
         "0006_knowledge_claim_fields",
         "0007_embedding_model_versioning",
+        "0008_web_chat_schema",
+        "0009_web_chat_hardening",
     )
 
 
@@ -183,4 +185,7 @@ def test_alembic_accepts_test_database_in_testing_mode():
     )
 
     assert res.returncode == 0
-    assert "0007_embedding_model_versioning" in (res.stdout + res.stderr)
+    assert any(
+        rev in (res.stdout + res.stderr)
+        for rev in ("0007_embedding_model_versioning", "0008_web_chat_schema", "0009_web_chat_hardening")
+    )

@@ -7,9 +7,17 @@ from app.services.knowledge_service import (
     KnowledgeService,
     ReembedBatchResult,
 )
+from app.services.chat_service import (
+    ChatLeaseLostError,
+    ChatLockTimeoutError,
+    ChatService,
+    chat_service,
+    ChatServiceError,
+    ConversationNotFoundError,
+)
 from app.services.document_processing_service import (
-    DocumentProcessingService,
     DocumentProcessingResult,
+    DocumentProcessingService,
     ProcessingResultStatus,
 )
 
@@ -18,6 +26,12 @@ __all__ = [
     "AuthService",
     "business_service",
     "BusinessService",
+    "chat_service",
+    "ChatService",
+    "ChatServiceError",
+    "ChatLockTimeoutError",
+    "ChatLeaseLostError",
+    "ConversationNotFoundError",
     "knowledge_service",
     "KnowledgeService",
     "ReembedBatchResult",

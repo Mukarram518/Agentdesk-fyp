@@ -131,6 +131,10 @@ class Settings(BaseSettings):
     SESSION_COOKIE_SAMESITE: str = "lax"
     SESSION_COOKIE_HTTPONLY: bool = True
 
+    # Public Web Widget Security (Phase 7 - Step 3)
+    WIDGET_TOKEN_SECRET: Union[str, None] = None
+    WIDGET_TOKEN_EXPIRE_MINUTES: int = 15
+
     # Rate Limiting
     AUTH_RATE_LIMIT_LOGIN: int = 10  # Max login attempts per minute per IP
     AUTH_RATE_LIMIT_REGISTER: int = 5  # Max registration attempts per minute per IP

@@ -2,9 +2,9 @@
 
 import uuid
 from datetime import datetime
-from typing import List, TYPE_CHECKING
-from sqlalchemy import String, Boolean, DateTime, func
-from sqlalchemy.dialects.postgresql import UUID
+from typing import List, Optional, TYPE_CHECKING
+from sqlalchemy import String, Boolean, DateTime, func, text
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models import Base
@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from app.models.business_member import BusinessMember
     from app.models.knowledge_file import KnowledgeFile
     from app.models.knowledge import KnowledgeBaseEntry
+    from app.models.conversation import Conversation
 
 
 class Business(Base):
@@ -46,6 +47,12 @@ class Business(Base):
         server_default=func.true(),
         nullable=False,
     )
+    allowed_origins: Mapped[List[str]] = mapped_column(
+        JSONB,
+        default=list,
+        server_default=text("'[]'::jsonb"),
+        nullable=False,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -74,6 +81,36 @@ class Business(Base):
         back_populates="business",
         cascade="all, delete-orphan",
     )
+    conversations: Mapped[List["Conversation"]] = relationship(
+        "Conversation",
+        back_populates="business",
+        cascade="all, delete-orphan",
+    )
+
+    @property
+    def allowed_website_origins(self) -> List[str]:
+        """Alias property for allowed_origins."""
+        return self.allowed_origins if self.allowed_origins is not None else []
+
+    @allowed_website_origins.setter
+    def allowed_website_origins(self, value: List[str]) -> None:
+        self.allowed_origins = value
+
+    def is_origin_allowed(self, origin: Optional[str]) -> bool:
+        """Determines if a candidate website origin is explicitly permitted.
+
+        Security guarantees:
+        - Rejects empty, whitespace, or None origins.
+        - Rejects arbitrary origins by default (empty allowed_origins matches nothing).
+        - RFC 6454-compliant origin normalization and exact equality comparison.
+        - Prevents wildcard origins and unsafe substring/suffix matching.
+        """
+        from app.core.widget_auth import validate_business_origin
+
+        return validate_business_origin(origin, self.allowed_origins)
 
     def __repr__(self) -> str:
-        return f"<Business id={self.id} name={self.name} slug={self.slug} is_active={self.is_active}>"
+        return (
+            f"<Business id={self.id} name={self.name} slug={self.slug} "
+            f"is_active={self.is_active} allowed_origins={self.allowed_origins}>"
+        )

@@ -22,6 +22,15 @@ from app.models.knowledge import (  # noqa: E402
     KnowledgeLanguage,
     EMBEDDING_VECTOR_DIMENSION,
 )
+from app.models.conversation import (  # noqa: E402
+    Conversation,
+    ConversationChannel,
+    ConversationStatus,
+)
+from app.models.message import (  # noqa: E402
+    Message,
+    MessageRole,
+)
 
 __all__ = [
     "Base",
@@ -36,4 +45,9 @@ __all__ = [
     "KnowledgeSourceType",
     "KnowledgeLanguage",
     "EMBEDDING_VECTOR_DIMENSION",
+    "Conversation",
+    "ConversationChannel",
+    "ConversationStatus",
+    "Message",
+    "MessageRole",
 ]

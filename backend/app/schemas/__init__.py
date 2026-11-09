@@ -21,6 +21,11 @@ from app.schemas.knowledge import (
     KnowledgeSearchResultItem,
     KnowledgeSearchResponse,
 )
+from app.schemas.chat import (
+    ChatMessageRequest,
+    ChatMessageItem,
+    ChatMessageResponse,
+)
 
 __all__ = [
     "RegisterRequest",
@@ -38,5 +43,8 @@ __all__ = [
     "KnowledgeSearchRequest",
     "KnowledgeSearchResultItem",
     "KnowledgeSearchResponse",
+    "ChatMessageRequest",
+    "ChatMessageItem",
+    "ChatMessageResponse",
 ]
 

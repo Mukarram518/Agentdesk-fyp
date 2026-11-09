@@ -15,6 +15,14 @@ from app.repositories.knowledge_repository import (
     knowledge_repository,
     KnowledgeRepository,
 )
+from app.repositories.conversation_repository import (
+    conversation_repository,
+    ConversationRepository,
+)
+from app.repositories.message_repository import (
+    message_repository,
+    MessageRepository,
+)
 
 __all__ = [
     "user_repository",
@@ -29,5 +37,9 @@ __all__ = [
     "KnowledgeFileRepository",
     "knowledge_repository",
     "KnowledgeRepository",
+    "conversation_repository",
+    "ConversationRepository",
+    "message_repository",
+    "MessageRepository",
 ]
 
