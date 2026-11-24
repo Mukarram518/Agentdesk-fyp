@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from app.models.knowledge_file import KnowledgeFile
     from app.models.knowledge import KnowledgeBaseEntry
     from app.models.conversation import Conversation
+    from app.models.agent_config import AgentConfig
 
 
 class Business(Base):
@@ -84,6 +85,12 @@ class Business(Base):
     conversations: Mapped[List["Conversation"]] = relationship(
         "Conversation",
         back_populates="business",
+        cascade="all, delete-orphan",
+    )
+    agent_config: Mapped[Optional["AgentConfig"]] = relationship(
+        "AgentConfig",
+        back_populates="business",
+        uselist=False,
         cascade="all, delete-orphan",
     )
 

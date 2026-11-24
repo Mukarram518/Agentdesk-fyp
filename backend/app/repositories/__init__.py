@@ -23,6 +23,10 @@ from app.repositories.message_repository import (
     message_repository,
     MessageRepository,
 )
+from app.repositories.agent_config import (
+    agent_config_repository,
+    AgentConfigRepository,
+)
 
 __all__ = [
     "user_repository",
@@ -41,5 +45,7 @@ __all__ = [
     "ConversationRepository",
     "message_repository",
     "MessageRepository",
+    "agent_config_repository",
+    "AgentConfigRepository",
 ]
 

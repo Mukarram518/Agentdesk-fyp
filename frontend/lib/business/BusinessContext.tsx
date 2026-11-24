@@ -13,7 +13,7 @@ import { BusinessStore, type BusinessContextType } from "./business-store";
 export type { BusinessContextType, BusinessState } from "./business-store";
 export { BusinessStore, INITIAL_BUSINESS_STATE } from "./business-store";
 
-const BusinessContext = createContext<BusinessContextType | undefined>(undefined);
+export const BusinessContext = createContext<BusinessContextType | undefined>(undefined);
 
 export function BusinessProvider({
   children,

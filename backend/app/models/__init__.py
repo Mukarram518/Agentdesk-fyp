@@ -31,6 +31,11 @@ from app.models.message import (  # noqa: E402
     Message,
     MessageRole,
 )
+from app.models.agent_config import (  # noqa: E402
+    AgentConfig,
+    DEFAULT_LANGUAGE_PRIORITY,
+    DEFAULT_TONE,
+)
 
 __all__ = [
     "Base",
@@ -50,4 +55,7 @@ __all__ = [
     "ConversationStatus",
     "Message",
     "MessageRole",
+    "AgentConfig",
+    "DEFAULT_LANGUAGE_PRIORITY",
+    "DEFAULT_TONE",
 ]

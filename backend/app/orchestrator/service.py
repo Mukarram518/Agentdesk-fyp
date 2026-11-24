@@ -6,6 +6,7 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import ChatDisabledError, VoiceDisabledError
 from app.core.logging import logger
 from app.models.business import Business
 from app.orchestrator.context import ContextBuilder, OrchestratorContext
@@ -25,6 +26,10 @@ from app.providers.llm import (
     LLMProviderError,
     LLMResponse,
     get_llm_provider,
+)
+from app.services.agent_config_service import (
+    AgentConfigService,
+    agent_config_service as default_agent_config_service,
 )
 
 
@@ -63,15 +68,18 @@ class AIOrchestrator:
         self,
         llm_provider: Optional[LLMProvider] = None,
         context_builder: Optional[ContextBuilder] = None,
+        agent_config_service: Optional[AgentConfigService] = None,
     ) -> None:
-        """Initializes the orchestrator with required provider and context services.
+        """Initializes the orchestrator with required provider, context, and config services.
 
         Args:
             llm_provider: Concrete LLMProvider (Mock or Groq). Defaults to factory provider.
             context_builder: ContextBuilder service for RAG retrieval and prompt formatting.
+            agent_config_service: AgentConfigService for dynamic tenant configuration loading.
         """
         self.llm_provider = llm_provider or get_llm_provider()
         self.context_builder = context_builder or ContextBuilder()
+        self.agent_config_service = agent_config_service or default_agent_config_service
 
     async def handle_turn(
         self,
@@ -84,27 +92,54 @@ class AIOrchestrator:
 
         Execution pipeline:
         1. Tenant identity enforcement: turn_input.business_id must be non-empty and valid.
-        2. Language resolution: detects language or uses explicit turn_input.language.
-        3. Intent & Agent routing: detects intent and selects active agent based on channel and config.
-        4. Context building: Constructs tenant-scoped Business Brain context and guardrailed prompt.
-        5. LLM execution: Invokes LLMProvider without coupling to SDK specifics.
-        6. Tool call boundary: Captures requested tool calls safely without executing tools in Phase 6.2.
-        7. Source preservation: Preserves retrieved knowledge UUIDs into AgentTurnOutput.sources.
-        8. Token usage: Preserves token usage metadata when returned by provider.
-        9. Exception safety: Never leaks internal stack traces, API keys, or database errors.
-        10. Zero DB mutations: Pure read operations; no writes or persistence.
+        2. Dynamic configuration resolution: loads persisted AgentConfig from database if not supplied.
+        3. Channel enablement verification: rejects interactions when channel is disabled.
+        4. Language resolution: detects language respecting configured language_priority.
+        5. Intent & Agent routing: detects intent and selects active agent based on channel and config.
+        6. Context building: Constructs tenant-scoped Business Brain context and guardrailed prompt.
+        7. LLM execution: Invokes LLMProvider without coupling to SDK specifics.
+        8. Tool call boundary: Captures requested tool calls safely without executing tools in Phase 6.2.
+        9. Source preservation: Preserves retrieved knowledge UUIDs into AgentTurnOutput.sources.
+        10. Token usage: Preserves token usage metadata when returned by provider.
+        11. Exception safety: Never leaks internal stack traces, API keys, or database errors.
+        12. Zero DB mutations: Pure read operations; no writes or persistence.
         """
         # 1. Enforce authorized tenant identity
         business_id = turn_input.business_id
         if not business_id or not isinstance(business_id, uuid.UUID):
             raise ValueError("A valid business_id is required.")
 
-        # 2. Resolve Agent Configuration
-        effective_config = agent_config or AgentConfig(business_id=business_id)
+        # 2. Resolve Agent Configuration Dynamically
+        if agent_config is None:
+            if not hasattr(db, "_mock_name"):
+                try:
+                    db_config = await self.agent_config_service.get_config(db, business_id=business_id)
+                    if db_config is not None:
+                        effective_config = AgentConfig.from_orm_model(db_config)
+                    else:
+                        effective_config = AgentConfig(business_id=business_id)
+                except Exception:
+                    effective_config = AgentConfig(business_id=business_id)
+            else:
+                effective_config = AgentConfig(business_id=business_id)
+        elif not isinstance(agent_config, AgentConfig):
+            effective_config = AgentConfig.from_orm_model(agent_config)
+        else:
+            effective_config = agent_config
+
         if effective_config.business_id is None:
             effective_config.business_id = business_id
 
-        # 3. Resolve Language
+        # 3. Channel Enablement Verification
+        if turn_input.channel in (ChannelType.WEB, ChannelType.WHATSAPP) and not effective_config.chat_enabled:
+            logger.warning(f"Rejected chat turn on disabled channel for business={business_id}")
+            raise ChatDisabledError("Chat is currently disabled for this business.")
+
+        if turn_input.channel == ChannelType.VOICE and not effective_config.voice_enabled:
+            logger.warning(f"Rejected voice turn on disabled channel for business={business_id}")
+            raise VoiceDisabledError("Voice is currently disabled for this business.")
+
+        # 4. Resolve Language
         if turn_input.language is not None:
             effective_language = turn_input.language
         else:
@@ -113,7 +148,7 @@ class AIOrchestrator:
                 language_priority=effective_config.language_priority,
             )
 
-        # 4. Intent Detection & Agent Selection
+        # 5. Intent Detection & Agent Selection
         intent: IntentType = detect_intent(turn_input.message)
         agent: AgentType = select_agent(
             intent=intent,

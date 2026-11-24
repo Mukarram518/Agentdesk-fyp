@@ -197,6 +197,11 @@ export function Sidebar({
                 onClick={() => {
                   onSelectItem?.(item.id);
                   onClose();
+                  if (item.id === "dashboard") {
+                    router.push("/");
+                  } else if (item.id === "agents") {
+                    router.push("/agents");
+                  }
                 }}
                 className={cn(
                   "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition duration-150 group text-left",

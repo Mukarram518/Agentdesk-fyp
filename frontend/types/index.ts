@@ -5,6 +5,7 @@
 export * from "./api";
 export * from "./business";
 export * from "./chat";
+export * from "./agents";
 
 export interface SystemHealth {
   status: "healthy" | "unhealthy" | "degraded";

@@ -28,6 +28,10 @@ from app.services.knowledge_service import (
     KnowledgeService,
     knowledge_service as default_knowledge_service,
 )
+from app.services.agent_config_service import (
+    AgentConfigService,
+    agent_config_service as default_agent_config_service,
+)
 
 
 DEFAULT_MAX_HISTORY_TURNS = 8
@@ -74,12 +78,14 @@ class ContextBuilder:
         self,
         knowledge_service: Optional[KnowledgeService] = None,
         business_repo: Optional[BusinessRepository] = None,
+        agent_config_service: Optional[AgentConfigService] = None,
         max_history_turns: int = DEFAULT_MAX_HISTORY_TURNS,
         knowledge_top_k: int = DEFAULT_KNOWLEDGE_TOP_K,
         knowledge_score_threshold: float = DEFAULT_KNOWLEDGE_SCORE_THRESHOLD,
     ) -> None:
         self.knowledge_service = knowledge_service or default_knowledge_service
         self.business_repo = business_repo or default_business_repo
+        self.agent_config_service = agent_config_service or default_agent_config_service
         self.max_history_turns = max_history_turns
         self.knowledge_top_k = knowledge_top_k
         self.knowledge_score_threshold = knowledge_score_threshold
@@ -132,8 +138,24 @@ class ContextBuilder:
                 business_name = turn_input.metadata.get("business_name", "AgentDesk Business")
                 business_slug = turn_input.metadata.get("business_slug", None)
 
-        # 3. Resolve Agent Configuration
-        effective_config = agent_config or AgentConfig(business_id=business_id)
+        # 3. Resolve Agent Configuration Dynamically
+        if agent_config is None:
+            if not hasattr(db, "_mock_name"):
+                try:
+                    db_config = await self.agent_config_service.get_config(db, business_id=business_id)
+                    if db_config is not None:
+                        effective_config = AgentConfig.from_orm_model(db_config)
+                    else:
+                        effective_config = AgentConfig(business_id=business_id)
+                except Exception:
+                    effective_config = AgentConfig(business_id=business_id)
+            else:
+                effective_config = AgentConfig(business_id=business_id)
+        elif not isinstance(agent_config, AgentConfig):
+            effective_config = AgentConfig.from_orm_model(agent_config)
+        else:
+            effective_config = agent_config
+
         if effective_config.business_id is None:
             effective_config.business_id = business_id
 

@@ -16,6 +16,10 @@ import type {
   BusinessCreatePayload,
   BusinessResponse,
 } from "@/types/business";
+import type {
+  AgentConfigResponse,
+  AgentConfigUpdate,
+} from "@/types/agents";
 import {
   ApiHttpError,
   ApiNetworkError,
@@ -38,6 +42,10 @@ export type {
   BusinessResponse,
   Business,
 } from "@/types/business";
+export type {
+  AgentConfigResponse,
+  AgentConfigUpdate,
+} from "@/types/agents";
 
 export const DEFAULT_BASE_URL = "http://localhost:8000";
 const DEFAULT_TIMEOUT_MS = 15000;
@@ -265,6 +273,19 @@ export class ApiClient {
 
   async getBusinessById(businessId: string): Promise<BusinessResponse> {
     return this.get<BusinessResponse>(`/api/v1/businesses/${businessId}`, { cache: "no-store" });
+  }
+
+  // Agent Configuration API methods
+  async getAgentConfig(): Promise<AgentConfigResponse> {
+    return this.get<AgentConfigResponse>("/api/v1/agents/config", { cache: "no-store" });
+  }
+
+  async updateAgentConfig(payload: AgentConfigUpdate): Promise<AgentConfigResponse> {
+    return this.put<AgentConfigResponse>("/api/v1/agents/config", payload);
+  }
+
+  async patchAgentConfig(payload: AgentConfigUpdate): Promise<AgentConfigResponse> {
+    return this.patch<AgentConfigResponse>("/api/v1/agents/config", payload);
   }
 }
 

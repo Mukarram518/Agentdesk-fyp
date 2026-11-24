@@ -26,6 +26,12 @@ from app.schemas.chat import (
     ChatMessageItem,
     ChatMessageResponse,
 )
+from app.schemas.agent_config import (
+    AgentConfigResponse,
+    AgentConfigUpdate,
+    VALID_TONES,
+    SUPPORTED_LANGUAGES,
+)
 
 __all__ = [
     "RegisterRequest",
@@ -46,5 +52,9 @@ __all__ = [
     "ChatMessageRequest",
     "ChatMessageItem",
     "ChatMessageResponse",
+    "AgentConfigResponse",
+    "AgentConfigUpdate",
+    "VALID_TONES",
+    "SUPPORTED_LANGUAGES",
 ]
 

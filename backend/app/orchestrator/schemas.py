@@ -79,6 +79,28 @@ class AgentConfig(BaseModel):
         description="Ordered list of preferred language codes",
     )
 
+    model_config = {
+        "from_attributes": True,
+    }
+
+    @classmethod
+    def from_orm_model(cls, orm_config) -> "AgentConfig":
+        """Factory constructing orchestrator AgentConfig from database model or response schema."""
+        if orm_config is None:
+            return cls()
+        if isinstance(orm_config, cls):
+            return orm_config
+        return cls(
+            business_id=getattr(orm_config, "business_id", None),
+            voice_enabled=bool(getattr(orm_config, "voice_enabled", True)),
+            chat_enabled=bool(getattr(orm_config, "chat_enabled", True)),
+            lead_enabled=bool(getattr(orm_config, "lead_enabled", True)),
+            voice_id=getattr(orm_config, "voice_id", None),
+            tone=str(getattr(orm_config, "tone", "helpful")),
+            greeting=getattr(orm_config, "greeting", None),
+            language_priority=list(getattr(orm_config, "language_priority", None) or ["en", "ur"]),
+        )
+
 
 class AgentTurnInput(BaseModel):
     """Normalized input payload for an AI orchestrator turn."""

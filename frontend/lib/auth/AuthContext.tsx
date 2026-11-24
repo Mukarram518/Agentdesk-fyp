@@ -1,8 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import type { AuthUser, LoginPayload, RegisterPayload } from "@/types/auth";
-import { apiClient, isApiClientError } from "@/lib/api/client";
+import { apiClient } from "@/lib/api/client";
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -19,21 +19,45 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const isMountedRef = useRef<boolean>(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const refreshUser = useCallback(async () => {
     try {
       const currentUser = await apiClient.getCurrentUser();
-      setUser(currentUser);
-    } catch (err: unknown) {
+      if (isMountedRef.current) {
+        setUser(currentUser);
+      }
+    } catch {
       // 401 or network failure indicates unauthenticated session
-      setUser(null);
+      if (isMountedRef.current) {
+        setUser(null);
+      }
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    refreshUser();
+    let isMounted = true;
+
+    void Promise.resolve().then(() => {
+      if (isMounted) {
+        void refreshUser();
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
   }, [refreshUser]);
 
   const login = async (payload: LoginPayload) => {

@@ -24,7 +24,7 @@ from app.api.dependencies.auth import get_current_user
 from app.api.dependencies.widget import get_verified_widget_business
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.core.exceptions import ServiceUnavailableError
+from app.core.exceptions import ChatDisabledError, ServiceUnavailableError
 from app.core.widget_auth import generate_widget_token
 from app.models.business import Business
 from app.models.business_member import MemberRole
@@ -213,6 +213,11 @@ async def send_chat_message(
             business=business,
         )
         return response
+    except ChatDisabledError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc.message or "Chat is currently disabled for this business."),
+        ) from exc
     except ConversationNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -118,6 +118,7 @@ def test_alembic_migration_configuration():
         "0007_embedding_model_versioning",
         "0008_web_chat_schema",
         "0009_web_chat_hardening",
+        "0010_agent_config_schema",
     )
 
 
@@ -187,5 +188,10 @@ def test_alembic_accepts_test_database_in_testing_mode():
     assert res.returncode == 0
     assert any(
         rev in (res.stdout + res.stderr)
-        for rev in ("0007_embedding_model_versioning", "0008_web_chat_schema", "0009_web_chat_hardening")
+        for rev in (
+            "0007_embedding_model_versioning",
+            "0008_web_chat_schema",
+            "0009_web_chat_hardening",
+            "0010_agent_config_schema",
+        )
     )

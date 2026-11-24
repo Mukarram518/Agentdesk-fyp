@@ -25,11 +25,16 @@ from app.core.distributed_lock import (
     LockAcquisitionError,
     LockConnectionError,
 )
-from app.core.exceptions import AgentDeskException, ServiceUnavailableError
+from app.core.exceptions import (
+    AgentDeskException,
+    ChatDisabledError,
+    ServiceUnavailableError,
+)
 from app.models.business import Business
 from app.models.conversation import Conversation
 from app.models.message import Message, MessageRole
 from app.orchestrator.schemas import (
+    AgentConfig,
     AgentTurnInput,
     AgentTurnOutput,
     ChannelType,
@@ -48,6 +53,10 @@ from app.schemas.chat import (
     ChatMessageItem,
     ChatMessageRequest,
     ChatMessageResponse,
+)
+from app.services.agent_config_service import (
+    AgentConfigService,
+    agent_config_service as default_agent_config_service,
 )
 
 logger = logging.getLogger(__name__)
@@ -97,14 +106,16 @@ class ChatService:
         conversation_repo: ConversationRepository = conversation_repository,
         message_repo: MessageRepository = message_repository,
         orchestrator: Optional[AIOrchestrator] = None,
+        agent_config_service: Optional[AgentConfigService] = None,
         lock_acquire_timeout: float = 10.0,
         lock_ttl_seconds: int = 30,
         lock_heartbeat_interval: float = 10.0,
     ) -> None:
-        """Initializes the ChatService with repository, orchestrator, and lock parameters."""
+        """Initializes the ChatService with repository, orchestrator, config, and lock parameters."""
         self.conversation_repo = conversation_repo
         self.message_repo = message_repo
         self._orchestrator = orchestrator
+        self.agent_config_service = agent_config_service or default_agent_config_service
         self.lock_acquire_timeout = lock_acquire_timeout
         self.lock_ttl_seconds = lock_ttl_seconds
         self.lock_heartbeat_interval = lock_heartbeat_interval
@@ -139,6 +150,17 @@ class ChatService:
         """
         if not business_id or not isinstance(business_id, uuid.UUID):
             raise ValueError("A valid business_id is required.")
+
+        # 0. Dynamic AgentConfig Loading & Channel Enforcement
+        db_config = await self.agent_config_service.get_config(db, business_id=business_id)
+        if db_config is not None:
+            agent_config = db_config
+        else:
+            agent_config = AgentConfig(business_id=business_id)
+
+        if not agent_config.chat_enabled:
+            logger.warning(f"Rejected chat turn on disabled channel for business={business_id}")
+            raise ChatDisabledError("Chat is currently disabled for this business.")
 
         request_id = request.request_id
 
@@ -268,6 +290,7 @@ class ChatService:
             turn_output: AgentTurnOutput = await self.orchestrator.handle_turn(
                 db=db,
                 turn_input=turn_input,
+                agent_config=agent_config,
                 business=business,
             )
 

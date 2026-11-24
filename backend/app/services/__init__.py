@@ -20,6 +20,15 @@ from app.services.document_processing_service import (
     DocumentProcessingService,
     ProcessingResultStatus,
 )
+from app.core.exceptions import ChatDisabledError, VoiceDisabledError
+from app.services.agent_config_service import (
+    AgentConfigService,
+    agent_config_service,
+)
+from app.services.voice_service import (
+    VoiceService,
+    voice_service,
+)
 
 __all__ = [
     "auth_service",
@@ -31,6 +40,8 @@ __all__ = [
     "ChatServiceError",
     "ChatLockTimeoutError",
     "ChatLeaseLostError",
+    "ChatDisabledError",
+    "VoiceDisabledError",
     "ConversationNotFoundError",
     "knowledge_service",
     "KnowledgeService",
@@ -38,5 +49,9 @@ __all__ = [
     "DocumentProcessingService",
     "DocumentProcessingResult",
     "ProcessingResultStatus",
+    "agent_config_service",
+    "AgentConfigService",
+    "voice_service",
+    "VoiceService",
 ]
 

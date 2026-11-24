@@ -5,6 +5,7 @@ from app.api.health import router as health_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.business import router as business_router
 from app.api.v1.knowledge import router as knowledge_router
+from app.api.v1.agents import router as agents_router
 from app.api.routes.chat import router as chat_router
 
 api_v1_router = APIRouter()
@@ -20,6 +21,9 @@ api_v1_router.include_router(business_router, prefix="/businesses", tags=["Busin
 
 # Mount knowledge base routes under v1 (/api/v1/knowledge)
 api_v1_router.include_router(knowledge_router, prefix="/knowledge", tags=["Knowledge"])
+
+# Mount agent configuration routes under v1 (/api/v1/agents)
+api_v1_router.include_router(agents_router, prefix="/agents", tags=["Agents"])
 
 # Mount web chat routes under v1 (/api/v1/chat)
 api_v1_router.include_router(chat_router, prefix="/chat", tags=["Chat"])

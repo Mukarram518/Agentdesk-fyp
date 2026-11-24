@@ -7,11 +7,18 @@ import { Header } from "./Header";
 interface AppShellProps {
   children: React.ReactNode;
   onConfigureWorkspace?: () => void;
+  activeItem?: string;
 }
 
-export function AppShell({ children, onConfigureWorkspace }: AppShellProps) {
+export function AppShell({
+  children,
+  onConfigureWorkspace,
+  activeItem: propActiveItem,
+}: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeItem, setActiveItem] = useState("dashboard");
+  const [activeItem, setActiveItem] = useState(propActiveItem || "dashboard");
+
+  const currentActive = propActiveItem || activeItem;
 
   const titles: Record<string, string> = {
     dashboard: "Dashboard",
@@ -30,7 +37,7 @@ export function AppShell({ children, onConfigureWorkspace }: AppShellProps) {
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-        activeItem={activeItem}
+        activeItem={currentActive}
         onSelectItem={(item) => setActiveItem(item)}
       />
 
@@ -38,7 +45,7 @@ export function AppShell({ children, onConfigureWorkspace }: AppShellProps) {
       <div className="flex-1 flex flex-col min-w-0">
         <Header
           onOpenSidebar={() => setSidebarOpen(true)}
-          activeItemTitle={titles[activeItem] || "Dashboard"}
+          activeItemTitle={titles[currentActive] || "Dashboard"}
           onConfigureWorkspace={onConfigureWorkspace}
         />
         <main className="flex-1 p-6 sm:p-8 lg:p-10 max-w-7xl w-full mx-auto">
