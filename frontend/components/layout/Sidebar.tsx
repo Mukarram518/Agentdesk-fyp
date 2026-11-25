@@ -201,6 +201,8 @@ export function Sidebar({
                     router.push("/");
                   } else if (item.id === "agents") {
                     router.push("/agents");
+                  } else if (item.id === "knowledge") {
+                    router.push("/knowledge");
                   }
                 }}
                 className={cn(

@@ -27,6 +27,20 @@ from app.repositories.knowledge_repository import (
     KnowledgeRepository,
     knowledge_repository,
 )
+from fastapi import UploadFile
+from app.models.knowledge_file import KnowledgeFile, KnowledgeFileStatus
+from app.repositories.knowledge_file_repository import (
+    KnowledgeFileRepository,
+    knowledge_file_repository,
+)
+from app.providers.storage.base import StorageProvider
+from app.providers.storage import get_storage_provider
+from app.core.upload_validation import (
+    validate_upload,
+    generate_storage_key,
+    MAX_FILE_SIZE_BYTES,
+    UploadValidationError,
+)
 
 _UNSET = object()
 
@@ -49,10 +63,14 @@ class KnowledgeService:
     def __init__(
         self,
         knowledge_repo: KnowledgeRepository = knowledge_repository,
+        knowledge_file_repo: KnowledgeFileRepository = knowledge_file_repository,
         embedding_provider: Optional[EmbeddingProvider] = None,
+        storage_provider: Optional[StorageProvider] = None,
     ) -> None:
         self.knowledge_repo = knowledge_repo
+        self.knowledge_file_repo = knowledge_file_repo
         self._embedding_provider = embedding_provider
+        self._storage_provider = storage_provider
 
     @property
     def embedding_provider(self) -> EmbeddingProvider:
@@ -60,6 +78,13 @@ class KnowledgeService:
         if self._embedding_provider is None:
             self._embedding_provider = get_embedding_provider()
         return self._embedding_provider
+
+    @property
+    def storage_provider(self) -> StorageProvider:
+        """Returns the configured storage provider, lazily resolving from factory if not injected."""
+        if self._storage_provider is None:
+            self._storage_provider = get_storage_provider()
+        return self._storage_provider
 
     async def create_faq(
         self,
@@ -542,6 +567,213 @@ class KnowledgeService:
             dry_run=False,
             entry_ids=reembedded_ids,
         )
+
+    async def upload_file(
+        self,
+        db: AsyncSession,
+        business_id: uuid.UUID,
+        upload_file: UploadFile,
+        arq_pool: Optional[Any] = None,
+    ) -> KnowledgeFile:
+        """Validates, stores, registers, and enqueues a knowledge document for processing.
+
+        Guarantees:
+        - Validates business_id as valid UUID.
+        - Streams the upload content in 64 KB chunks up to 5 MB without loading arbitrarily large payloads into memory.
+        - Validates MIME type, extension, and magic bytes (PDF / DOCX) via validate_upload.
+        - Rejects empty (0-byte) files.
+        - Generates tenant-isolated storage key.
+        - Stores file atomically via storage_provider.
+        - Persists KnowledgeFile record with status=PENDING.
+        - Enqueues background job 'process_knowledge_file' via ARQ pool.
+        - If ARQ pool is unavailable or enqueueing fails, marks status=FAILED with clear error message.
+        - If storage save or DB persistence fails, cleans up properly without leaving inconsistent/orphaned data.
+        """
+        if not business_id or not isinstance(business_id, uuid.UUID):
+            raise ValueError("Valid business_id is required.")
+
+        if not upload_file or not upload_file.filename:
+            raise ValueError("Upload file and filename are required.")
+
+        # 1. Stream upload in 64 KB chunks to strictly enforce 5 MB limit
+        chunk_size = 64 * 1024  # 64 KB
+        chunks = []
+        total_size = 0
+
+        while True:
+            chunk = await upload_file.read(chunk_size)
+            if not chunk:
+                break
+            total_size += len(chunk)
+            if total_size > MAX_FILE_SIZE_BYTES:
+                raise ValueError(
+                    f"File size exceeds maximum allowed limit of 5 MB ({MAX_FILE_SIZE_BYTES} bytes)."
+                )
+            chunks.append(chunk)
+
+        data = b"".join(chunks)
+
+        # 2. Strict format and signature validation
+        try:
+            validated = validate_upload(
+                data=data,
+                filename=upload_file.filename,
+                content_type=upload_file.content_type,
+            )
+        except UploadValidationError as exc:
+            raise ValueError(str(exc))
+
+        # 3. Generate tenant-scoped storage key and pre-assign UUID
+        file_id = uuid.uuid4()
+        storage_key = generate_storage_key(
+            business_id=business_id,
+            file_id=file_id,
+            extension=validated.extension,
+        )
+
+        # 4. Save to storage
+        try:
+            await self.storage_provider.upload(storage_key, data)
+        except Exception as exc:
+            logger.error(f"Storage persistence failed for business {business_id}: {exc}")
+            raise RuntimeError(f"Failed to persist file to storage: {exc}")
+
+        # 5. Create database record and explicitly commit before dispatching ARQ job
+        try:
+            kfile = await self.knowledge_file_repo.create_file(
+                db=db,
+                business_id=business_id,
+                filename=validated.filename,
+                storage_key=storage_key,
+                mime_type=validated.mime_type,
+                size_bytes=validated.size_bytes,
+                processing_status=KnowledgeFileStatus.PENDING.value,
+                file_id=file_id,
+            )
+            # Explicit commit before enqueueing background job:
+            # Under PostgreSQL Read Committed isolation, external sessions (such as the ARQ worker)
+            # cannot observe rows inserted by this transaction until they are committed.
+            # Committing here guarantees the KnowledgeFile record is durable and immediately visible
+            # to any ARQ worker that picks up the job.
+            await db.commit()
+            await db.refresh(kfile)
+        except Exception as exc:
+            await db.rollback()
+            # If DB flush or commit fails, clean up the written storage file
+            try:
+                if await self.storage_provider.exists(storage_key):
+                    await self.storage_provider.delete(storage_key)
+            except Exception:
+                pass
+            logger.error(f"Failed to create KnowledgeFile DB record: {exc}")
+            raise
+
+        # 6. Enqueue ARQ task only after database record is durably committed
+        if arq_pool is not None:
+            try:
+                await arq_pool.enqueue_job("process_knowledge_file", str(kfile.id))
+            except Exception as exc:
+                logger.error(f"Failed to enqueue background processing for file {kfile.id}: {exc}")
+                kfile.processing_status = KnowledgeFileStatus.FAILED.value
+                kfile.error_message = "Background processing queue unavailable"
+                try:
+                    await db.commit()
+                    await db.refresh(kfile)
+                except Exception as commit_exc:
+                    logger.error(f"Failed to commit failure status for file {kfile.id}: {commit_exc}")
+        else:
+            logger.warning(f"ARQ pool not available; marking file {kfile.id} as failed.")
+            kfile.processing_status = KnowledgeFileStatus.FAILED.value
+            kfile.error_message = "Background processing queue unavailable"
+            try:
+                await db.commit()
+                await db.refresh(kfile)
+            except Exception as commit_exc:
+                logger.error(f"Failed to commit failure status for file {kfile.id}: {commit_exc}")
+
+        return kfile
+
+    async def get_file(
+        self,
+        db: AsyncSession,
+        business_id: uuid.UUID,
+        file_id: uuid.UUID,
+    ) -> Optional[KnowledgeFile]:
+        """Retrieves a single KnowledgeFile strictly scoped to the tenant business."""
+        if not business_id or not isinstance(business_id, uuid.UUID):
+            raise ValueError("Valid business_id is required.")
+        if not file_id or not isinstance(file_id, uuid.UUID):
+            raise ValueError("Valid file_id is required.")
+
+        return await self.knowledge_file_repo.get_by_id(db, business_id=business_id, file_id=file_id)
+
+    async def list_files(
+        self,
+        db: AsyncSession,
+        business_id: uuid.UUID,
+        status: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Tuple[List[KnowledgeFile], int]:
+        """Retrieves paginated KnowledgeFiles and total count strictly scoped to the tenant."""
+        if not business_id or not isinstance(business_id, uuid.UUID):
+            raise ValueError("Valid business_id is required.")
+
+        if limit < 1 or limit > 100:
+            raise ValueError("Limit must be between 1 and 100.")
+        if offset < 0:
+            raise ValueError("Offset must be non-negative.")
+
+        files = await self.knowledge_file_repo.list_by_business(
+            db, business_id=business_id, status=status, limit=limit, offset=offset
+        )
+        total = await self.knowledge_file_repo.count_by_business(
+            db, business_id=business_id, status=status
+        )
+        return files, total
+
+    async def delete_file(
+        self,
+        db: AsyncSession,
+        business_id: uuid.UUID,
+        file_id: uuid.UUID,
+    ) -> bool:
+        """Deletes a knowledge file, cascades chunk deletion, and removes physical storage.
+
+        Guarantees:
+        - Validates business_id and file_id.
+        - Scoped strictly to the authenticated tenant.
+        - Returns False if file does not exist or belongs to another business.
+        - Deletes DB record first (cascading chunks).
+        - Deletes physical storage file.
+        - If physical storage deletion fails, logs and raises error to prevent misleading success.
+        """
+        if not business_id or not isinstance(business_id, uuid.UUID):
+            raise ValueError("Valid business_id is required.")
+        if not file_id or not isinstance(file_id, uuid.UUID):
+            raise ValueError("Valid file_id is required.")
+
+        kfile = await self.knowledge_file_repo.get_by_id(db, business_id=business_id, file_id=file_id)
+        if not kfile:
+            return False
+
+        storage_key = kfile.storage_key
+
+        # Delete database record (cascades to knowledge_base_entries chunks)
+        deleted = await self.knowledge_file_repo.delete_file(db, business_id=business_id, file_id=file_id)
+        if not deleted:
+            return False
+
+        # Attempt to delete physical storage file
+        if storage_key:
+            try:
+                if await self.storage_provider.exists(storage_key):
+                    await self.storage_provider.delete(storage_key)
+            except Exception as exc:
+                logger.error(f"Storage deletion failed for file {file_id} key '{storage_key}': {exc}")
+                raise RuntimeError(f"Storage deletion failed: {exc}")
+
+        return True
 
 
 knowledge_service = KnowledgeService()

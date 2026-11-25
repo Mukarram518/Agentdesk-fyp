@@ -20,6 +20,17 @@ import type {
   AgentConfigResponse,
   AgentConfigUpdate,
 } from "@/types/agents";
+import type {
+  FAQCreatePayload,
+  FAQUpdatePayload,
+  FAQResponse,
+  ListFaqsParams,
+  KnowledgeSearchRequest,
+  KnowledgeSearchResponse,
+  KnowledgeFileResponse,
+  KnowledgeFileListResponse,
+  ListFilesParams,
+} from "@/types/knowledge";
 import {
   ApiHttpError,
   ApiNetworkError,
@@ -46,6 +57,17 @@ export type {
   AgentConfigResponse,
   AgentConfigUpdate,
 } from "@/types/agents";
+export type {
+  FAQCreatePayload,
+  FAQUpdatePayload,
+  FAQResponse,
+  ListFaqsParams,
+  KnowledgeSearchRequest,
+  KnowledgeSearchResponse,
+  KnowledgeFileResponse,
+  KnowledgeFileListResponse,
+  ListFilesParams,
+} from "@/types/knowledge";
 
 export const DEFAULT_BASE_URL = "http://localhost:8000";
 const DEFAULT_TIMEOUT_MS = 15000;
@@ -286,6 +308,59 @@ export class ApiClient {
 
   async patchAgentConfig(payload: AgentConfigUpdate): Promise<AgentConfigResponse> {
     return this.patch<AgentConfigResponse>("/api/v1/agents/config", payload);
+  }
+
+  // Knowledge Base API methods (Phase 5C)
+  async listFaqs(params?: ListFaqsParams): Promise<FAQResponse[]> {
+    return this.get<FAQResponse[]>("/api/v1/knowledge", {
+      params: params as Record<string, string | number | boolean | undefined>,
+      cache: "no-store",
+    });
+  }
+
+  async createFaq(payload: FAQCreatePayload): Promise<FAQResponse> {
+    return this.post<FAQResponse>("/api/v1/knowledge", payload);
+  }
+
+  async getFaq(knowledgeId: string): Promise<FAQResponse> {
+    return this.get<FAQResponse>(`/api/v1/knowledge/${knowledgeId}`, { cache: "no-store" });
+  }
+
+  async updateFaq(knowledgeId: string, payload: FAQUpdatePayload): Promise<FAQResponse> {
+    return this.patch<FAQResponse>(`/api/v1/knowledge/${knowledgeId}`, payload);
+  }
+
+  async deleteFaq(knowledgeId: string): Promise<void> {
+    return this.delete<void>(`/api/v1/knowledge/${knowledgeId}`);
+  }
+
+  async searchKnowledge(payload: KnowledgeSearchRequest): Promise<KnowledgeSearchResponse> {
+    return this.post<KnowledgeSearchResponse>("/api/v1/knowledge/search", payload);
+  }
+
+  async uploadKnowledgeFile(file: File | Blob, filename?: string): Promise<KnowledgeFileResponse> {
+    const formData = new FormData();
+    if (filename) {
+      formData.append("file", file, filename);
+    } else {
+      formData.append("file", file);
+    }
+    return this.post<KnowledgeFileResponse>("/api/v1/knowledge/files", formData);
+  }
+
+  async listKnowledgeFiles(params?: ListFilesParams): Promise<KnowledgeFileListResponse> {
+    return this.get<KnowledgeFileListResponse>("/api/v1/knowledge/files", {
+      params: params as Record<string, string | number | boolean | undefined>,
+      cache: "no-store",
+    });
+  }
+
+  async getKnowledgeFileStatus(fileId: string): Promise<KnowledgeFileResponse> {
+    return this.get<KnowledgeFileResponse>(`/api/v1/knowledge/files/${fileId}`, { cache: "no-store" });
+  }
+
+  async deleteKnowledgeFile(fileId: string): Promise<void> {
+    return this.delete<void>(`/api/v1/knowledge/files/${fileId}`);
   }
 }
 

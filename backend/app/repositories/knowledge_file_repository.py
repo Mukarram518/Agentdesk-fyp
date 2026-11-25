@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 from typing import List, Optional
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.knowledge_file import KnowledgeFile, KnowledgeFileStatus
@@ -24,9 +24,11 @@ class KnowledgeFileRepository:
         error_message: Optional[str] = None,
         processing_token: Optional[str] = None,
         processing_started_at: Optional[datetime] = None,
+        file_id: Optional[uuid.UUID] = None,
     ) -> KnowledgeFile:
         """Creates and flushes a new knowledge file record without committing."""
         kfile = KnowledgeFile(
+            id=file_id or uuid.uuid4(),
             business_id=business_id,
             filename=filename.strip(),
             storage_key=storage_key.strip(),
@@ -39,6 +41,7 @@ class KnowledgeFileRepository:
         )
         db.add(kfile)
         await db.flush()
+        await db.refresh(kfile)
         return kfile
 
     async def get_by_id(
@@ -79,6 +82,22 @@ class KnowledgeFileRepository:
         result = await db.execute(stmt)
         return list(result.scalars().all())
 
+    async def count_by_business(
+        self,
+        db: AsyncSession,
+        business_id: uuid.UUID,
+        status: Optional[str] = None,
+    ) -> int:
+        """Counts total knowledge files for a business matching optional status."""
+        stmt = (
+            select(func.count(KnowledgeFile.id))
+            .where(KnowledgeFile.business_id == business_id)
+        )
+        if status:
+            stmt = stmt.where(KnowledgeFile.processing_status == status)
+        result = await db.execute(stmt)
+        return int(result.scalar_one() or 0)
+
     async def update_status(
         self,
         db: AsyncSession,
@@ -104,6 +123,7 @@ class KnowledgeFileRepository:
         if processing_started_at is not None or status == KnowledgeFileStatus.READY.value:
             kfile.processing_started_at = processing_started_at
         await db.flush()
+        await db.refresh(kfile)
         return kfile
 
     async def delete_file(

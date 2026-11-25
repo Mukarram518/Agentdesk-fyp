@@ -1,6 +1,7 @@
 """Prompt templates, guardrails, and message builders for the AI Orchestrator."""
 
 from typing import Any, Dict, List, Optional
+from xml.sax.saxutils import escape
 
 from app.orchestrator.schemas import AgentConfig, ChannelType, LanguageCode
 from app.providers.llm.schemas import ChatMessage, MessageRole
@@ -84,6 +85,20 @@ def format_agent_configuration(agent_config: AgentConfig) -> str:
     return "\n".join(lines)
 
 
+def _escape_xml_text(value: Any) -> str:
+    """Escapes XML-special characters (&, <, >) in element content."""
+    if value is None:
+        return ""
+    return escape(str(value))
+
+
+def _escape_xml_attr(value: Any) -> str:
+    """Escapes XML-special characters (&, <, >, \") in attribute content."""
+    if value is None:
+        return ""
+    return escape(str(value), entities={'"': "&quot;"})
+
+
 def format_retrieved_knowledge(
     retrieved_items: List[Any],
 ) -> str:
@@ -104,17 +119,34 @@ def format_retrieved_knowledge(
 
     lines = [KNOWLEDGE_BLOCK_START]
     for idx, item in enumerate(retrieved_items, start=1):
-        item_id = getattr(item, "id", f"item_{idx}")
-        source_type = getattr(item, "source_type", "FAQ")
-        score = getattr(item, "score", 0.0)
-        question = getattr(item, "question", None)
-        answer = getattr(item, "answer", "")
+        if isinstance(item, dict):
+            item_id = item.get("id", f"item_{idx}")
+            source_type = item.get("source_type") or item.get("document_type") or "FAQ"
+            score = item.get("score", 0.0)
+            question = item.get("question", None)
+            answer = item.get("answer", "")
+            section_title = item.get("section_title", None)
+        else:
+            item_id = getattr(item, "id", f"item_{idx}")
+            source_type = getattr(item, "source_type", None) or getattr(item, "document_type", "FAQ")
+            score = getattr(item, "score", 0.0)
+            question = getattr(item, "question", None)
+            answer = getattr(item, "answer", "")
+            section_title = getattr(item, "section_title", None)
+
+        escaped_id = _escape_xml_attr(item_id)
+        escaped_type = _escape_xml_attr(source_type)
 
         score_attr = f' score="{score:.4f}"' if score else ""
-        lines.append(f'  <knowledge_item id="{item_id}" type="{source_type}"{score_attr}>')
+        lines.append(f'  <knowledge_item id="{escaped_id}" type="{escaped_type}"{score_attr}>')
+        if section_title:
+            escaped_section = _escape_xml_text(section_title)
+            lines.append(f"    <section>{escaped_section}</section>")
         if question:
-            lines.append(f"    <question>{question}</question>")
-        lines.append(f"    <answer>{answer}</answer>")
+            escaped_question = _escape_xml_text(question)
+            lines.append(f"    <question>{escaped_question}</question>")
+        escaped_answer = _escape_xml_text(answer)
+        lines.append(f"    <answer>{escaped_answer}</answer>")
         lines.append("  </knowledge_item>")
     lines.append(KNOWLEDGE_BLOCK_END)
     return "\n".join(lines)

@@ -6,6 +6,7 @@ import uuid
 from pydantic import BaseModel, Field, field_validator
 
 from app.models.knowledge import KnowledgeLanguage, KnowledgeBaseEntry
+from app.models.knowledge_file import KnowledgeFile
 
 VALID_LANGUAGES = frozenset({l.value for l in KnowledgeLanguage})
 
@@ -143,7 +144,7 @@ class FAQUpdate(BaseModel):
 
 
 class FAQResponse(BaseModel):
-    """Public representation of an FAQ entry.
+    """Public representation of an FAQ entry or document chunk.
 
     Security & Payload Guarantees:
     - Never exposes raw vector embedding arrays.
@@ -166,6 +167,11 @@ class FAQResponse(BaseModel):
         ...,
         description="Whether the vector embedding is outdated or pending regeneration",
     )
+    # Document chunk metadata (optional, populated for document_chunk source_type)
+    source_file_id: Optional[uuid.UUID] = None
+    chunk_index: Optional[int] = None
+    page_number: Optional[int] = None
+    section_title: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -187,6 +193,10 @@ class FAQResponse(BaseModel):
             source_type=entry.source_type,
             has_embedding=entry.embedding is not None,
             embedding_stale=bool(entry.embedding_stale),
+            source_file_id=getattr(entry, "source_file_id", None),
+            chunk_index=getattr(entry, "chunk_index", None),
+            page_number=getattr(entry, "page_number", None),
+            section_title=getattr(entry, "section_title", None),
             created_at=entry.created_at,
             updated_at=entry.updated_at,
         )
@@ -236,6 +246,12 @@ class KnowledgeSearchResultItem(BaseModel):
         default="cosine_distance",
         description="Metric used for similarity evaluation",
     )
+    # Document chunk metadata (optional, populated for document_chunk source_type)
+    source_type: Optional[str] = None
+    chunk_index: Optional[int] = None
+    page_number: Optional[int] = None
+    section_title: Optional[str] = None
+    source_file_id: Optional[uuid.UUID] = None
 
 
 class KnowledgeSearchResponse(BaseModel):
@@ -244,4 +260,53 @@ class KnowledgeSearchResponse(BaseModel):
     query: str
     results: List[KnowledgeSearchResultItem]
     total_results: int
+
+
+class KnowledgeFileResponse(BaseModel):
+    """Public representation of an uploaded knowledge file.
+
+    Security & Payload Guarantees:
+    - Never exposes physical storage keys or local filesystem paths.
+    - Never exposes internal concurrency lease tokens (processing_token).
+    - Strictly scoped to tenant business_id.
+    """
+
+    id: uuid.UUID
+    business_id: uuid.UUID
+    filename: str
+    size_bytes: int
+    mime_type: str
+    processing_status: str
+    error_message: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    model_config = {
+        "from_attributes": True,
+        "populate_by_name": True,
+    }
+
+    @classmethod
+    def from_orm_file(cls, kfile: KnowledgeFile) -> "KnowledgeFileResponse":
+        """Factory constructing KnowledgeFileResponse from an ORM KnowledgeFile."""
+        return cls(
+            id=kfile.id,
+            business_id=kfile.business_id,
+            filename=kfile.filename,
+            size_bytes=kfile.size_bytes,
+            mime_type=kfile.mime_type,
+            processing_status=kfile.processing_status,
+            error_message=kfile.error_message,
+            created_at=kfile.created_at,
+            updated_at=getattr(kfile, "updated_at", None),
+        )
+
+
+class KnowledgeFileListResponse(BaseModel):
+    """Paginated list of uploaded knowledge file metadata."""
+
+    items: List[KnowledgeFileResponse]
+    total: int
+    limit: int
+    offset: int
 
